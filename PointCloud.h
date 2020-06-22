@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <omp.h>
 
 struct Point {
   Eigen::Vector3d location;

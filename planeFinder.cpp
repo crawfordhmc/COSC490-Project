@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
         threshold = atof(argv[4]);
     }
 
+
     // Set up random seed
     // (random size generation taken from https://en.cppreference.com/w/cpp/numeric/random/uniform_int_distribution)
     std::random_device rd;
@@ -48,12 +49,14 @@ int main(int argc, char* argv[]) {
     //RANSAC
     size_t numTrials = 20; //REPLACE
     std::vector<size_t> removedPoints;
+    //planes cannot take points from each other in parallel - implement auto plane detection then parallelize
     for (size_t plane = 0; plane < numPlanes; ++plane) { //NOTE: should plane be size_t or int??
 
         // Create random distribution for the point cloud
         std::uniform_int_distribution<size_t> distr(0, pointCloud.size() - 1);
         Eigen::Hyperplane<double, 3> bestPlane;
         std::vector<size_t> bestPoints;
+        //#pragma omp parallel for each trial, queue for points, calculate, queue to compare and update to bestPlane?
         for (size_t trial = 0; trial < numTrials; ++trial) {
             // If not enough points remaining not on a plane, continue to next trial
             if (pointCloud.size() - removedPoints.size() < 3) {
@@ -73,6 +76,7 @@ int main(int argc, char* argv[]) {
                 pointCloud[foundPoints[1]].location,
                 pointCloud[foundPoints[2]].location);
             // Add points closer than threshold to this plane
+            //#pragma omp parallel for each point in the cloud compare distance to threshold, simple starting point if it's slow enough?
             std::vector<size_t> thisPoints;
             for (size_t i = 0; i < pointCloud.size(); ++i) {
                 if (thisPlane.absDistance(pointCloud[i].location) < threshold)
