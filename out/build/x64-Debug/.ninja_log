@@ -1,0 +1,9 @@
+# ninja log v5
+0	1696	614514688	CMakeFiles/PlaneDetector.dir/PointCloud.cpp.obj	ca306a7d2c1917b9
+21	6651	614514693	CMakeFiles/PlaneDetector.dir/planeFinder.cpp.obj	ebb64a0f844e8515
+6651	8263	614514694	PlaneDetector.exe	b0634eb7af2affdc
+5	1160	614516246	CMakeFiles/PlaneDetector.dir/PointCloud.cpp.obj	60b4db8b50a5afee
+2	6479	614516251	CMakeFiles/PlaneDetector.dir/planeFinder.cpp.obj	2e697cae5c3b3e63
+6479	7189	614516251	PlaneDetector.exe	b0634eb7af2affdc
+1	6793	614516488	CMakeFiles/PlaneDetector.dir/planeFinder.cpp.obj	2e697cae5c3b3e63
+6793	7552	614516488	PlaneDetector.exe	b0634eb7af2affdc
