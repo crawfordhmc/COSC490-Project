@@ -76,10 +76,13 @@ int main(int argc, char* argv[]) {
                 pointCloud[foundPoints[1]].location,
                 pointCloud[foundPoints[2]].location);
             // Add points closer than threshold to this plane
-            //#pragma omp parallel for each point in the cloud compare distance to threshold, simple starting point if it's slow enough?
             std::vector<size_t> thisPoints;
-            for (size_t i = 0; i < pointCloud.size(); ++i) {
+            //OpenMP required signed integrals for its loop variables... interesting
+            signed long long i = 0;
+#pragma omp parallel for shared(thisPoints) private (i)
+            for (i = 0; i < pointCloud.size(); ++i) {
                 if (thisPlane.absDistance(pointCloud[i].location) < threshold)
+#pragma omp critical
                     thisPoints.push_back(i);
             }
             // Update plane with the most points
