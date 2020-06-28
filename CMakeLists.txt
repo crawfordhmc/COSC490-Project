@@ -6,6 +6,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 project( PlaneDetector )
 
 find_package(Eigen3 CONFIG REQUIRED)
+find_package(tinyply CONFIG REQUIRED)
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -19,3 +20,4 @@ PointCloud.cpp
 PointCloud.h )
 
 target_link_libraries( PlaneDetector PRIVATE Eigen3::Eigen)
+target_link_libraries( PlaneDetector PRIVATE tinyply)

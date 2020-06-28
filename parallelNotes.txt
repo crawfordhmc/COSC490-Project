@@ -1,0 +1,31 @@
+Parallel level 1: Planes
+	Nature: planes are detected by trials until a % of the scene is explained by planes, or max number of trials is hit (determine with threads?)
+	Issue: Don't know how many planes. 
+
+Parallel level 2: Trials
+	Nature: each trial finds a possible plane
+	Issue: number of trials is updated in runtime by the outlier ratio
+	Solution: determine a minimum plane size relative to the point cloud size, give points a plane list property, valid planes fight for points.
+	Will taking the largest planes that explain a % of the scene give the best solution?
+
+Parallel level 3: Distance comparisons (up to 20ms serially in cube model, 9ms in parallel)
+	Nature: chunk points to calculate distance with into threads
+	Issue: requires signed integer for OpenMP, so not as robust. Currently loop variable is only added to though, so no occasion for it to drop below zero.
+	Limit model number of points to signed long long max?
+
+
+Other improvements:
+	determine number of trials with s = 3, probability to aim for that so many trials with explain the % of the scene, and outlier ratio (updated?)
+	
+	determine number of planes automatically by % of the scene explained
+
+
+BIG OLDE QUESTION - do I use something other than RANSAC? PROSAC, preemptive RANSAC... talk to Steven about this
+
+
+
+
+The package tinyply:x64-windows provides CMake targets:
+
+    find_package(tinyply CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE tinyply)

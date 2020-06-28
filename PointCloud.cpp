@@ -3,7 +3,11 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <tinyply.h>
+using namespace tinyply;
 
+// replace with read_example altered to produce a PointCloud
+// maybe comment to understand more?
 PointCloud readFromPly(const std::string& filename) {
   std::ifstream fin(filename);
   std::string token = "";
@@ -123,7 +127,7 @@ PointCloud readFromPly(const std::string& filename) {
   return pc;
 }
 
-
+// replace with write_example altered to take in a PointCloud
 void writeToPly(const PointCloud& pc, const std::string& filename) {
   std::ofstream fout(filename);
   fout << "ply\n"

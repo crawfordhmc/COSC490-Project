@@ -12,42 +12,9 @@ void initialiseColours(std::vector<Eigen::Vector3i> *colours) {
 }
 
 
-int main(int argc, char* argv[]) {
+PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, float successProb, float inlierRatio, int numPlanes, float threshold) {
 
-    // Command line arguments
-    std::string inputFile = "";
-    std::string outputFile = "";
-    size_t numPlanes = 0;
-    double threshold = 0;
-
-    // Parse the command line
-    if (argc != 5) {
-        std::cout << "Usage: planeFinder <input file> <output file> <number of planes> <distance threshold>" << std::endl;
-        exit(-2);
-    }
-    else {
-        inputFile = argv[1];
-        outputFile = argv[2];
-        numPlanes = atoi(argv[3]);
-        threshold = atof(argv[4]);
-    }
-
-
-    // Set up random seed
-    // (random size generation taken from https://en.cppreference.com/w/cpp/numeric/random/uniform_int_distribution)
-    std::random_device rd;
-    std::mt19937 gen(rd());
-
-    // Read a point cloud from a file
-    std::cout << "Reading points from " << inputFile << ", planes = " << numPlanes << ", threshold = " << threshold << std::endl;
-    PointCloud pointCloud = readFromPly(inputFile);
-
-    // Set up some colours to assign to the planes that are found
-    std::vector<Eigen::Vector3i> colours;
-    initialiseColours(&colours);
-
-    //RANSAC
-    size_t numTrials = 20; //REPLACE
+    int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
     std::vector<size_t> removedPoints;
     //planes cannot take points from each other in parallel - implement auto plane detection then parallelize
     for (size_t plane = 0; plane < numPlanes; ++plane) { //NOTE: should plane be size_t or int??
@@ -77,7 +44,7 @@ int main(int argc, char* argv[]) {
                 pointCloud[foundPoints[2]].location);
             // Add points closer than threshold to this plane
             std::vector<size_t> thisPoints;
-            //OpenMP required signed integrals for its loop variables... interesting
+            //OpenMP requires signed integrals for its loop variables... interesting
             signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
             for (i = 0; i < pointCloud.size(); ++i) {
@@ -87,17 +54,88 @@ int main(int argc, char* argv[]) {
             }
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
-                    bestPlane = thisPlane;
-                    bestPoints = thisPoints;
+                bestPlane = thisPlane;
+                bestPoints = thisPoints;
             }
         }
-        // Save best plane from all trials and it's point indexes to be removed
+        // Save best plane from all trials and its point indexes to be removed
         for (size_t j = 0; j < bestPoints.size(); ++j) {
             pointCloud[bestPoints[j]].planeIx = plane;
             removedPoints.push_back(bestPoints[j]);
         }
 
     }
+    return pointCloud;
+
+}
+
+
+int main(int argc, char* argv[]) {
+
+    // Command line arguments
+    std::string inputFile = "";
+    std::string outputFile = "";
+    int numPlanes = 0;
+    double threshold = 0;
+
+    // Parse the command line
+    if (argc != 5) {
+        std::cout << "Usage: planeFinder <input file> <output file> <number of planes> <distance threshold, -1 for automatic>" << std::endl;
+        exit(-2);
+    }
+    else {
+        inputFile = argv[1];
+        outputFile = argv[2];
+        numPlanes = atoi(argv[3]);
+        threshold = atof(argv[4]);
+    }
+
+    // Set up random seed
+    // (random size generation taken from https://en.cppreference.com/w/cpp/numeric/random/uniform_int_distribution)
+    std::random_device rd;
+    std::mt19937 gen(rd());
+
+    // Read a point cloud from a file
+    std::cout << "Reading points from " << inputFile << ", planes = " << numPlanes << ", threshold = " << threshold << std::endl;
+    PointCloud pointCloud = readFromPly(inputFile);
+
+    // Checking if number of points is too big for signed long long type (this aint gonna happen lmao)
+    if (pointCloud.size() > LLONG_MAX) {
+        std::cout << "Model is too big - reduce points to " << LLONG_MAX << " or less" << std::endl;
+        return 1;
+    }
+
+    // Determine the threshold as a % of model size if auto detect enabled
+    if (threshold == -1) {
+        // (coordinate center is all over the place, so biggest/smallest signed point difference gives bounding box)
+        double xs = pointCloud[0].location[0];
+        double xl = pointCloud[0].location[0];
+        double ys = pointCloud[0].location[1];
+        double yl = pointCloud[0].location[1];
+        double zs = pointCloud[0].location[2];
+        double zl = pointCloud[0].location[2];
+        // chunk parallelize this if its slow?
+        for (size_t i = 1; i < pointCloud.size(); i++) {
+            xs = std::min(xs, pointCloud[i].location[0]);
+            xl = std::max(xl, pointCloud[i].location[0]);
+            ys = std::min(ys, pointCloud[i].location[1]);
+            yl = std::max(yl, pointCloud[i].location[1]);
+            zs = std::min(zs, pointCloud[i].location[2]);
+            zl = std::max(zl, pointCloud[i].location[2]);
+        }
+        // get x/y/z difference and compute average scale factor for the model??
+        double scale = (xl - xs + yl - ys + zl - zs) / 3;
+        // apply a small % to the value to get a sensible threshold
+        threshold = 0.08*scale;
+        std::cout << "Auto-generated threshold is " << threshold << std::endl;
+    }
+
+    // Set up some colours to assign to the planes that are found
+    std::vector<Eigen::Vector3i> colours;
+    initialiseColours(&colours);
+
+    // prob could be input or hardcoded. HOW TO GET OUTLIER RATIO
+    pointCloud = ransac(pointCloud, gen, 0.99, 0.8, numPlanes, threshold);
 
     // Recolour points according to their plane then save the results
     std::cout << "Writing points to " << outputFile << std::endl;
