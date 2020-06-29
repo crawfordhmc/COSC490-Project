@@ -19,7 +19,8 @@ struct Point {
 
 typedef std::vector<Point> PointCloud;
 
-PointCloud readFromPly(const std::string& filename);
+PointCloud readFromPly(const std::string& filepath);
+PointCloud tinyReadFromPly(const std::string& filename);
 
 void writeToPly(const PointCloud& pc, const std::string& filename);
 

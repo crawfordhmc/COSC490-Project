@@ -15,6 +15,7 @@ void initialiseColours(std::vector<Eigen::Vector3i> *colours) {
 PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, float successProb, float inlierRatio, int numPlanes, float threshold) {
 
     int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
+    // inlier starts as 3/how many points (or just smol number), then update
     std::vector<size_t> removedPoints;
     //planes cannot take points from each other in parallel - implement auto plane detection then parallelize
     for (size_t plane = 0; plane < numPlanes; ++plane) { //NOTE: should plane be size_t or int??
@@ -54,6 +55,7 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, float successProb, fl
             }
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
+                //update inlier ratio
                 bestPlane = thisPlane;
                 bestPoints = thisPoints;
             }
