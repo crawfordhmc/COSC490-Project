@@ -86,7 +86,7 @@ PointCloud tinyReadFromPly(const std::string& filepath)
         const size_t numVerticesBytes = vertices->buffer.size_bytes();
         std::vector<Eigen::Vector3f> verts(vertices->count); // assuming input values are floats
         std::memcpy(verts.data(), vertices->buffer.get(), numVerticesBytes);
-        // copy colors to vector
+        // HOLD UP BITCH DO WE EVEN NEED TO DO COLORS IF WE HAVE THE ORIGINAL FOR REFERENCE
         const size_t numColorsBytes = colors->buffer.size_bytes();
         std::vector<Eigen::Vector3i> cols(colors->count); // PROBLEM: unsigned integers are not copying nicely into the vector....
         std::memcpy(cols.data(), colors->buffer.get(), numColorsBytes);
@@ -100,7 +100,7 @@ PointCloud tinyReadFromPly(const std::string& filepath)
         pc.resize(vertices->count, defaultPoint);
         // do this in parallel if slow
         for (size_t p = 0; p < pc.size(); ++p) {
-            pc[p].location = verts[p];
+            pc[p].location = verts[p].cast<double>();
             pc[p].colour = cols[p];
         }
 

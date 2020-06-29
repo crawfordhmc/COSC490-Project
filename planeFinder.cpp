@@ -12,23 +12,32 @@ void initialiseColours(std::vector<Eigen::Vector3i> *colours) {
 }
 
 
-PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, float successProb, float inlierRatio, int numPlanes, float threshold) {
+PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, unsigned int numPlanes, double threshold, unsigned int maxTrials) {
 
-    int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
-    // inlier starts as 3/how many points (or just smol number), then update
+    // Initial number of trials, very high from calculation of rough and low inlier ratio for largest plane
+    double inlierRatio = 0.1;
+    unsigned int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
     std::vector<size_t> removedPoints;
-    //planes cannot take points from each other in parallel - implement auto plane detection then parallelize
-    for (size_t plane = 0; plane < numPlanes; ++plane) { //NOTE: should plane be size_t or int??
+    for (size_t plane = 0; plane < numPlanes; ++plane) {
 
         // Create random distribution for the point cloud
         std::uniform_int_distribution<size_t> distr(0, pointCloud.size() - 1);
         Eigen::Hyperplane<double, 3> bestPlane;
         std::vector<size_t> bestPoints;
         //#pragma omp parallel for each trial, queue for points, calculate, queue to compare and update to bestPlane?
-        for (size_t trial = 0; trial < numTrials; ++trial) {
+        // find number of trials from 1st plane
+        // slave threads go NUTS on the remaining points with no ownership
+        // master thread keeps track of plane ids and size/culls based on updating minimum size
+        // once planes explaining % of the scene of reasonable size are found
+        // stop parallel
+        // give ownership of points, cull smol bois, check scene %
+        // congrats u made a planar scene
+        int trial = 0;
+        while (trial < numTrials && trial < maxTrials) {
             // If not enough points remaining not on a plane, continue to next trial
             if (pointCloud.size() - removedPoints.size() < 3) {
                 std::cout << "RANSAC trial " << (trial + 1) << " failed" << std::endl;
+                trial++;
                 continue;
             }
             // For each trial, generate a plane from 3 random point cloud indexes
@@ -55,15 +64,20 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, float successProb, fl
             }
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
-                //update inlier ratio
                 bestPlane = thisPlane;
                 bestPoints = thisPoints;
+                if (plane == 0) { // adjust the number of trials for the first/largest plane
+                    inlierRatio = (float)bestPoints.size() / (float)pointCloud.size();
+                    numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
+                }
             }
+            trial++;
         }
+        std::cout << trial << " RANSAC trials run for plane " << plane + 1 << std::endl;
         // Save best plane from all trials and its point indexes to be removed
         for (size_t j = 0; j < bestPoints.size(); ++j) {
             pointCloud[bestPoints[j]].planeIx = plane;
-            removedPoints.push_back(bestPoints[j]);
+            removedPoints.push_back(bestPoints[j]); // opportunity to do reclaiming here?
         }
 
     }
@@ -136,8 +150,8 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Vector3i> colours;
     initialiseColours(&colours);
 
-    // prob could be input or hardcoded. HOW TO GET OUTLIER RATIO
-    pointCloud = ransac(pointCloud, gen, 0.99, 0.8, numPlanes, threshold);
+    // success probability, distance threshold, max trials
+    pointCloud = ransac(pointCloud, gen, 0.99, numPlanes, threshold, 300);
 
     // Recolour points according to their plane then save the results
     std::cout << "Writing points to " << outputFile << std::endl;
