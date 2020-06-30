@@ -113,7 +113,7 @@ int main(int argc, char* argv[]) {
 
     // Read a point cloud from a file
     std::cout << "Reading points from " << inputFile << ", planes = " << numPlanes << ", threshold = " << threshold << std::endl;
-    PointCloud pointCloud = readFromPly(inputFile);
+    PointCloud pointCloud = tinyReadFromPly(inputFile);
 
     // Checking if number of points is too big for signed long long type (this aint gonna happen lmao)
     if (pointCloud.size() > LLONG_MAX) {
