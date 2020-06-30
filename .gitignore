@@ -4,9 +4,7 @@
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
 # LAB FILES
-mainStudio.ply
-simpleCube.ply
-outCube.ply
+/PLY
 
 # User-specific files
 *.rsuser
