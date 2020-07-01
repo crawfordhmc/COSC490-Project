@@ -27,6 +27,6 @@ The package tinyply:x64-windows provides CMake targets:
     target_link_libraries(main PRIVATE tinyply)
 
 PROFILING
-on small cube:
-parallel ransac is 20s
-serial ransac is 32s
+on medium studio with 100 trials:
+parallel 32s
+serial 113s

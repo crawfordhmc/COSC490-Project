@@ -118,11 +118,11 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
             std::vector<size_t> thisPoints;
             //OpenMP requires signed integrals for its loop variables... interesting
             signed long long i = 0;
-#pragma omp parallel for shared(thisPoints) private (i)
+//#pragma omp parallel for shared(thisPoints) private (i)
             //std::cout << omp_get_max_threads() << std::endl;
             for (i = 0; i < pointCloud.size(); ++i) {
                 if (thisPlane.absDistance(pointCloud[i].location) < threshold)
-#pragma omp critical
+//#pragma omp critical
                     thisPoints.push_back(i);
             }
             // Update plane with the most points
