@@ -1,6 +1,7 @@
 30/6/20 TODO
 Import ALbany St and performance profile (reduce success probability if she's too chonky)
 Reclaiming points
+non-adjacent coloring
 Start presentation: performance stats, before and afters, fancy parallel algorithim plan
 
 

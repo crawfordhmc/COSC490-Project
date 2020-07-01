@@ -1,9 +1,9 @@
 #include "PointCloud.h"
 
-const double THRESHOLD_PARAMETER = 0.02;
+const double THRESHOLD_PARAMETER = 0.01;
 
 void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
-    colours->resize(6);
+    colours->resize(9);
 
     (*colours)[0](0) = 255;    (*colours)[0](1) = 0;      (*colours)[0](2) = 0;
     (*colours)[1](0) = 0;      (*colours)[1](1) = 255;    (*colours)[1](2) = 0;
@@ -11,6 +11,9 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
     (*colours)[3](0) = 255;    (*colours)[3](1) = 255;    (*colours)[3](2) = 0;
     (*colours)[4](0) = 0;      (*colours)[4](1) = 255;     (*colours)[4](2) = 255;
     (*colours)[5](0) = 255;    (*colours)[5](1) = 0;      (*colours)[5](2) = 255;
+    (*colours)[6](0) = 127;    (*colours)[6](1) = 127;    (*colours)[6](2) = 127;
+    (*colours)[7](0) = 0;      (*colours)[7](1) = 0;      (*colours)[7](2) = 0;
+    (*colours)[8](0) = 255;    (*colours)[8](1) = 255;    (*colours)[8](2) = 255;
 }
 
 
@@ -143,6 +146,7 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
         for (size_t j = 0; j < bestPoints.size(); ++j) {
             pointCloud[bestPoints[j]].planeIx = plane;
             removedPoints.push_back(bestPoints[j]); // opportunity to do reclaiming here?
+            // could only compare planes that intersect close to the bounding box?
         }
         inlierRatio = (float)removedPoints.size() / (float)pointCloud.size();
         plane++;
@@ -219,13 +223,14 @@ int main(int argc, char* argv[]) {
     initialiseColours(&colours);
 
     // success probability, % of scene to be explained, distance threshold, max trials
-    pointCloud = ransac(pointCloud, gen, success, explained, threshold, 200);
+    pointCloud = ransac(pointCloud, gen, success, explained, threshold, 1000);
 
     // Recolour points according to their plane then save the results
     std::cout << "Writing points to " << outputFile << std::endl;
     for (auto& point : pointCloud) {
         if (point.planeIx >= 0) {
             point.colour = colours[point.planeIx % colours.size()];
+            // idea: color planes with limited colors based on avoiding intersecting plane's colors
         }
     }
     writeToPly(pointCloud, outputFile);
