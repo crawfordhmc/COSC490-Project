@@ -1,7 +1,5 @@
 #include "PointCloud.h"
 
-const double THRESHOLD_PARAMETER = 0.01;
-
 void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
     colours->resize(9);
 
@@ -43,10 +41,10 @@ PointCloud parallelRANSAC(PointCloud pointCloud, std::mt19937 gen, double succes
         // Add points closer than threshold to this plane
         std::vector<size_t> thisPoints;
         signed long long i; //OpenMP requires signed integrals for its loop variables
-#pragma omp parallel for shared(thisPoints) private (i)
+//#pragma omp parallel for shared(thisPoints) private (i)
         for (i = 0; i < pointCloud.size(); ++i) {
             if (thisPlane.absDistance(pointCloud[i].location)) {
-#pragma omp critical
+//#pragma omp critical
                 thisPoints.push_back(i);
             }
         }
@@ -163,13 +161,15 @@ int main(int argc, char* argv[]) {
     // Command line arguments
     std::string inputFile = "";
     std::string outputFile = "";
-    float success = 0;
-    float explained = 0;
-    float threshold = 0;
+    float success = 0.99;
+    float explained = 0.99;
+    float threshold = -1;
+    int maxTrials = 1000;
+    float scale_parameter = 0.01;
 
     // Parse the command line
-    if (argc != 6) {
-        std::cout << "Usage: planeFinder <input file> <output file> <probability of success> <ratio of scene to be explained by planes> <distance threshold, -1 for automatic>" << std::endl;
+    if (argc != 8) {
+        std::cout << "Usage: planeFinder <input file> <output file> <probability of success> <ratio of scene to be explained by planes> <distance threshold, -1 for automatic> <max RANSAC trials> <scale factor>" << std::endl;
         exit(-2);
     }
     else {
@@ -178,6 +178,8 @@ int main(int argc, char* argv[]) {
         success = atof(argv[3]);
         explained = atof(argv[4]);
         threshold = atof(argv[5]);
+        maxTrials = atoi(argv[6]);
+        scale_parameter = atof(argv[7]);
     }
 
     // Set up random seed
@@ -214,7 +216,7 @@ int main(int argc, char* argv[]) {
         // get x/y/z difference and compute average scale factor for the model
         double scale = (xl - xs + yl - ys + zl - zs) / 3;
         // apply a small % to the value to get a sensible threshold
-        threshold = THRESHOLD_PARAMETER * scale;
+        threshold = scale_parameter * scale;
         std::cout << "Auto-generated threshold is " << threshold << std::endl;
     }
 
@@ -222,8 +224,7 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Vector3i> colours;
     initialiseColours(&colours);
 
-    // success probability, % of scene to be explained, distance threshold, max trials
-    pointCloud = ransac(pointCloud, gen, success, explained, threshold, 1000);
+    pointCloud = ransac(pointCloud, gen, success, explained, threshold, maxTrials);
 
     // Recolour points according to their plane then save the results
     std::cout << "Writing points to " << outputFile << std::endl;
