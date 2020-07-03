@@ -1,7 +1,7 @@
 #include "PointCloud.h"
 
 void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
-    colours->resize(9);
+    colours->resize(11);
 
     (*colours)[0](0) = 255;    (*colours)[0](1) = 0;      (*colours)[0](2) = 0;
     (*colours)[1](0) = 0;      (*colours)[1](1) = 255;    (*colours)[1](2) = 0;
@@ -9,9 +9,11 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
     (*colours)[3](0) = 255;    (*colours)[3](1) = 255;    (*colours)[3](2) = 0;
     (*colours)[4](0) = 0;      (*colours)[4](1) = 255;     (*colours)[4](2) = 255;
     (*colours)[5](0) = 255;    (*colours)[5](1) = 0;      (*colours)[5](2) = 255;
-    (*colours)[6](0) = 127;    (*colours)[6](1) = 127;    (*colours)[6](2) = 127;
-    (*colours)[7](0) = 0;      (*colours)[7](1) = 0;      (*colours)[7](2) = 0;
-    (*colours)[8](0) = 255;    (*colours)[8](1) = 255;    (*colours)[8](2) = 255;
+    (*colours)[6](0) = 0;      (*colours)[6](1) = 0;      (*colours)[6](2) = 0;
+    (*colours)[7](0) = 255;    (*colours)[7](1) = 255;    (*colours)[7](2) = 255;
+    (*colours)[8](0) = 127;    (*colours)[8](1) = 0;      (*colours)[8](2) = 0;
+    (*colours)[9](0) = 0;      (*colours)[9](1) = 127;    (*colours)[9](2) = 0;
+    (*colours)[10](0) = 0;     (*colours)[10](1) = 0;     (*colours)[10](2) = 127;
 }
 
 
