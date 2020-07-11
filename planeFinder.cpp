@@ -121,6 +121,7 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
             //OpenMP requires signed integrals for its loop variables... interesting
             signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
+            //omp_set_num_threads(4); for profiling
             for (i = 0; i < pointCloud.size(); ++i) {
                 if (thisPlane.absDistance(pointCloud[i].location) < threshold)
 #pragma omp critical
@@ -130,10 +131,8 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
             if (thisPoints.size() > bestPoints.size()) {
                 bestPlane = thisPlane;
                 bestPoints = thisPoints;
-                if (plane == 0) { // adjust the number of trials for the first/largest plane
-                    inlierRatio = (float)bestPoints.size() / (float)pointCloud.size();
-                    numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
-                }
+                inlierRatio = (float)bestPoints.size() / (float)pointCloud.size();
+                numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
 
             }
             trial++;
@@ -169,8 +168,8 @@ int main(int argc, char* argv[]) {
     float scale_parameter = 0.01;
 
     // Parse the command line
-    if (argc != 8) {
-        std::cout << "Usage: planeFinder <input file> <output file> <probability of success> <ratio of scene to be explained by planes> <distance threshold, -1 for automatic> <max RANSAC trials> <scale factor>" << std::endl;
+    if (argc != 7) {
+        std::cout << "Usage: planeFinder <input file> <output file> <probability of success> <ratio of scene to be explained by planes> <max RANSAC trials> <scale factor>" << std::endl;
         exit(-2);
     }
     else {
@@ -178,9 +177,8 @@ int main(int argc, char* argv[]) {
         outputFile = argv[2];
         success = atof(argv[3]);
         explained = atof(argv[4]);
-        threshold = atof(argv[5]);
-        maxTrials = atoi(argv[6]);
-        scale_parameter = atof(argv[7]);
+        maxTrials = atoi(argv[5]);
+        scale_parameter = atof(argv[6]);
     }
 
     // Set up random seed
@@ -196,30 +194,28 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Determine the threshold as a % of model size if auto detect enabled
-    if (threshold == -1) {
-        // (coordinate center is all over the place, so biggest/smallest signed point difference gives bounding box)
-        double xs = pointCloud[0].location[0];
-        double xl = pointCloud[0].location[0];
-        double ys = pointCloud[0].location[1];
-        double yl = pointCloud[0].location[1];
-        double zs = pointCloud[0].location[2];
-        double zl = pointCloud[0].location[2];
-        // chunk parallelize this if its slow?
-        for (size_t i = 1; i < pointCloud.size(); i++) {
-            xs = std::min(xs, pointCloud[i].location[0]);
-            xl = std::max(xl, pointCloud[i].location[0]);
-            ys = std::min(ys, pointCloud[i].location[1]);
-            yl = std::max(yl, pointCloud[i].location[1]);
-            zs = std::min(zs, pointCloud[i].location[2]);
-            zl = std::max(zl, pointCloud[i].location[2]);
-        }
-        // get x/y/z difference and compute average scale factor for the model
-        double scale = (xl - xs + yl - ys + zl - zs) / 3;
-        // apply a small % to the value to get a sensible threshold
-        threshold = scale_parameter * scale;
-        std::cout << "Auto-generated threshold is " << threshold << std::endl;
+    // Determine the threshold as a % of model size
+    // (coordinate center is all over the place, so biggest/smallest signed point difference gives bounding box)
+    double xs = pointCloud[0].location[0];
+    double xl = pointCloud[0].location[0];
+    double ys = pointCloud[0].location[1];
+    double yl = pointCloud[0].location[1];
+    double zs = pointCloud[0].location[2];
+    double zl = pointCloud[0].location[2];
+    // chunk parallelize this if its slow?
+    for (size_t i = 1; i < pointCloud.size(); i++) {
+        xs = std::min(xs, pointCloud[i].location[0]);
+        xl = std::max(xl, pointCloud[i].location[0]);
+        ys = std::min(ys, pointCloud[i].location[1]);
+        yl = std::max(yl, pointCloud[i].location[1]);
+        zs = std::min(zs, pointCloud[i].location[2]);
+        zl = std::max(zl, pointCloud[i].location[2]);
     }
+    // get x/y/z difference and compute average scale factor for the model
+    double scale = (xl - xs + yl - ys + zl - zs) / 3;
+    // apply a small % to the value to get a sensible threshold
+    threshold = scale_parameter * scale;
+    std::cout << "Auto-generated threshold is " << threshold << std::endl;
 
     // Set up some colours to assign to the planes that are found
     std::vector<Eigen::Vector3i> colours;

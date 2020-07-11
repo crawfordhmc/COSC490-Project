@@ -100,6 +100,7 @@ PointCloud tinyReadFromPly(const std::string& filepath)
         pc.resize(vertices->count, defaultPoint);
         signed long long p;
 #pragma omp parallel for private(p)
+        //omp_set_num_threads(4); for profiling
         for (p = 0; p < pc.size(); ++p) {
             pc[p].location = verts[p].cast<double>();
             pc[p].colour = cols[p].cast<int>();

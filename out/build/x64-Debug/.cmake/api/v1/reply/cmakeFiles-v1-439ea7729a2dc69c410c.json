@@ -137,6 +137,26 @@
 			"path" : "C:/Users/helena/vcpkg/installed/x64-windows/share/eigen3/Eigen3Targets.cmake"
 		},
 		{
+			"isExternal" : true,
+			"path" : "C:/Users/helena/vcpkg/installed/x64-windows/share/tinyply/tinyplyConfigVersion.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "C:/Users/helena/vcpkg/installed/x64-windows/share/tinyply/tinyplyConfig.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "C:/Users/helena/vcpkg/installed/x64-windows/share/tinyply/tinyplyTargets.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "C:/Users/helena/vcpkg/installed/x64-windows/share/tinyply/tinyplyTargets-debug.cmake"
+		},
+		{
+			"isExternal" : true,
+			"path" : "C:/Users/helena/vcpkg/installed/x64-windows/share/tinyply/tinyplyTargets-release.cmake"
+		},
+		{
 			"isCMake" : true,
 			"isExternal" : true,
 			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.17/Modules/FindOpenMP.cmake"
@@ -147,14 +167,6 @@
 			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.17/Modules/CMakeParseImplicitLinkInfo.cmake"
 		},
 		{
-			"isGenerated" : true,
-			"path" : "out/build/x64-Debug/CMakeFiles/FindOpenMP/OpenMPTryFlag.c"
-		},
-		{
-			"isGenerated" : true,
-			"path" : "out/build/x64-Debug/CMakeFiles/FindOpenMP/OpenMPTryFlag.cpp"
-		},
-		{
 			"isCMake" : true,
 			"isExternal" : true,
 			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.17/Modules/FindPackageHandleStandardArgs.cmake"
@@ -163,14 +175,6 @@
 			"isCMake" : true,
 			"isExternal" : true,
 			"path" : "C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/share/cmake-3.17/Modules/FindPackageMessage.cmake"
-		},
-		{
-			"isGenerated" : true,
-			"path" : "out/build/x64-Debug/CMakeFiles/FindOpenMP/OpenMPCheckVersion.c"
-		},
-		{
-			"isGenerated" : true,
-			"path" : "out/build/x64-Debug/CMakeFiles/FindOpenMP/OpenMPCheckVersion.cpp"
 		}
 	],
 	"kind" : "cmakeFiles",

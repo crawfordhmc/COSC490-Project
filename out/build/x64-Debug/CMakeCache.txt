@@ -227,6 +227,9 @@ VCPKG_VERBOSE:BOOL=OFF
 //Path to a program.
 _VCPKG_CL:FILEPATH=C:/Program Files (x86)/Microsoft Visual Studio/2019/Community/VC/Tools/MSVC/14.26.28801/bin/Hostx64/x64/cl.exe
 
+//The directory containing a CMake configuration file for tinyply.
+tinyply_DIR:PATH=C:/Users/helena/vcpkg/installed/x64-windows/share/tinyply
+
 
 ########################
 # INTERNAL cache entries
@@ -363,11 +366,11 @@ CMAKE_TOOLCHAIN_FILE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
 //Details about finding OpenMP
-FIND_PACKAGE_MESSAGE_DETAILS_OpenMP:INTERNAL=[TRUE][TRUE][c ][v2.0()]
+FIND_PACKAGE_MESSAGE_DETAILS_OpenMP:INTERNAL=[TRUE][TRUE][c ][v()]
 //Details about finding OpenMP_C
-FIND_PACKAGE_MESSAGE_DETAILS_OpenMP_C:INTERNAL=[-openmp][v2.0()]
+FIND_PACKAGE_MESSAGE_DETAILS_OpenMP_C:INTERNAL=[-openmp][v()]
 //Details about finding OpenMP_CXX
-FIND_PACKAGE_MESSAGE_DETAILS_OpenMP_CXX:INTERNAL=[-openmp][v2.0()]
+FIND_PACKAGE_MESSAGE_DETAILS_OpenMP_CXX:INTERNAL=[-openmp][v()]
 //Result of TRY_COMPILE
 OpenMP_COMPILE_RESULT_CXX_openmp:INTERNAL=TRUE
 //Result of TRY_COMPILE

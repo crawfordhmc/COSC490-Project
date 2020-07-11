@@ -30,7 +30,7 @@
 			{
 				"command" : 1,
 				"file" : 1,
-				"line" : 16,
+				"line" : 17,
 				"parent" : 0
 			},
 			{
@@ -42,7 +42,13 @@
 			{
 				"command" : 2,
 				"file" : 1,
-				"line" : 21,
+				"line" : 23,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 1,
+				"line" : 22,
 				"parent" : 0
 			}
 		]
@@ -62,9 +68,14 @@
 			"includes" : 
 			[
 				{
-					"backtrace" : 3,
+					"backtrace" : 4,
 					"isSystem" : true,
 					"path" : "C:/Users/helena/vcpkg/installed/x64-windows/include/eigen3"
+				},
+				{
+					"backtrace" : 3,
+					"isSystem" : true,
+					"path" : "C:/Users/helena/vcpkg/installed/x64-windows/include"
 				}
 			],
 			"language" : "CXX",
@@ -87,6 +98,11 @@
 			{
 				"fragment" : "/machine:x64 /debug /INCREMENTAL /subsystem:console",
 				"role" : "flags"
+			},
+			{
+				"backtrace" : 3,
+				"fragment" : "C:\\Users\\helena\\vcpkg\\installed\\x64-windows\\debug\\lib\\tinyplyd.lib",
+				"role" : "libraries"
 			},
 			{
 				"fragment" : "kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib",

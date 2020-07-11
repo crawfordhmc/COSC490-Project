@@ -1,8 +1,13 @@
-30/6/20 TODO
-Import ALbany St and performance profile (reduce success probability if she's too chonky)
-Reclaiming points
-non-adjacent coloring
-Start presentation: performance stats, before and afters, fancy parallel algorithim plan
+TODO
+Profile 1, 2, 3, 4 threads to predict further threads improvement (close other programs)
+(hyperthreading isn’t possible on this computer, try on lewis’s computer hyperthreading at some point)
+
+Abstract/Introduction
+
+Background
+Link for papers in the field: https://web.stanford.edu/class/cs231m/spring-2014/docs/ransac.pdf
+
+Content
 
 
 Parallel level 1: Planes
@@ -30,3 +35,4 @@ PROFILING
 on medium studio with 100 trials, 4 threads:
 parallel 32s
 serial 113s
+
