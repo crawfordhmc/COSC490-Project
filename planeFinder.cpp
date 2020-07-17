@@ -17,79 +17,22 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
 }
 
 
-PointCloud parallelRANSAC(PointCloud pointCloud, std::mt19937 gen, double successProb, double explained, double threshold, unsigned int maxTrials) {
     //idea: get user estimate of minimum number of planes
     // When running loads of trials, keep that many of the next largest planes
     // When a plane is found, run through the next largest planes and reassign points by distance, then re-rank and save
     // Then run more trials if % of the scene is not explained
 
-    // Generate the first plane serially and calculate number of RANSAC trials to use
-    double inlierRatio = 0.1;
-    unsigned int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
-    std::uniform_int_distribution<size_t> distr(0, pointCloud.size() - 1);
-    int trial = 0;
-    Eigen::Hyperplane<double, 3> bestPlane;
-    std::vector<size_t> bestPoints;
-    while (trial < numTrials && trial < maxTrials) {
-        // generate a random plane
-        size_t index1 = distr(gen);
-        size_t index2, index3;
-        do { size_t index2 = distr(gen); } while (index2 == index1);
-        do { size_t index3 = distr(gen); } while (index3 == index1 || index3 == index2);
-        Eigen::Hyperplane<double, 3> thisPlane = Eigen::Hyperplane<double, 3>::Through(
-            pointCloud[index1].location,
-            pointCloud[index2].location,
-            pointCloud[index3].location);
-        // Add points closer than threshold to this plane
-        std::vector<size_t> thisPoints;
-        signed long long i; //OpenMP requires signed integrals for its loop variables
-//#pragma omp parallel for shared(thisPoints) private (i)
-        for (i = 0; i < pointCloud.size(); ++i) {
-            if (thisPlane.absDistance(pointCloud[i].location)) {
-//#pragma omp critical
-                thisPoints.push_back(i);
-            }
-        }
-        if (thisPoints.size() > bestPoints.size()) {
-            bestPlane = thisPlane;
-            bestPoints = thisPoints;
-            inlierRatio = (float)bestPoints.size() / (float)pointCloud.size();
-            numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
-        }
-        trial++;
-    }
-    // Other operations with bestPlane can be done here
-    std::cout << trial << " RANSAC trials run for plane " << 1 << ", equation: " <<
-        bestPlane.coeffs()[0] << "x + " << bestPlane.coeffs()[1] << "y + " << bestPlane.coeffs()[2] << "z + " << bestPlane.coeffs()[3] << " = 0" << std::endl;
-    // Save point indexes of the best plane from all trials to be removed
-    std::vector<size_t> removedPoints = bestPoints;
-    for (size_t j = 0; j < bestPoints.size(); ++j) {
-        pointCloud[bestPoints[j]].planeIx = 0;
-    }
-    inlierRatio = (float)removedPoints.size() / (float)pointCloud.size();
-    if (inlierRatio > explained) return pointCloud;
-
-    // Generate planes
-    int plane = 1;
-    // slave threads go NUTS on the remaining points with no ownership
-    // master thread keeps track of plane ids and size/culls based on updating minimum size
-    // once planes explaining % of the scene of reasonable size are found
-    // stop parallel
-    // give ownership of points, cull smol bois, check scene %
-    // congrats u made a planar scene
-}
-
-
 PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, double explained, double threshold, unsigned int maxTrials) {
 
-    // Initial number of trials, very high from calculation of rough and low inlier ratio for largest plane
-    double inlierRatio = 0.1;
-    unsigned int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
     unsigned int plane = 0;
     std::vector<size_t> removedPoints;
+    int threads;
+    omp_set_num_threads(4);
 
     do {
-
+        // Initial number of trials, very high from lowball initial inlier ratio
+        double inlierRatio = 0.1;
+        unsigned int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
         // Create random distribution for the point cloud, with other planes removed
         std::uniform_int_distribution<size_t> distr(0, pointCloud.size() - 1);
         Eigen::Hyperplane<double, 3> bestPlane;
@@ -121,17 +64,19 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
             //OpenMP requires signed integrals for its loop variables... interesting
             signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
-            //omp_set_num_threads(4); for profiling
             for (i = 0; i < pointCloud.size(); ++i) {
                 if (thisPlane.absDistance(pointCloud[i].location) < threshold)
 #pragma omp critical
                     thisPoints.push_back(i);
+                // limit a single thread on the first trial of the first plane to printing the number of threads being used
+                if (trial == 0 && omp_get_thread_num() == 0 && plane == 0)
+                    threads = omp_get_num_threads();
             }
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
                 bestPlane = thisPlane;
                 bestPoints = thisPoints;
-                inlierRatio = (float)bestPoints.size() / (float)pointCloud.size();
+                inlierRatio = (float)bestPoints.size() / (pointCloud.size() - removedPoints.size());
                 numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
 
             }
@@ -146,10 +91,10 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
             removedPoints.push_back(bestPoints[j]); // opportunity to do reclaiming here?
             // could only compare planes that intersect close to the bounding box?
         }
-        inlierRatio = (float)removedPoints.size() / (float)pointCloud.size();
         plane++;
 
-    } while (inlierRatio < explained);
+    } while ((float)removedPoints.size()/pointCloud.size() < explained);
+    std::cout << omp_get_max_threads() << " threads were used" << std::endl;
 
     return pointCloud;
 
@@ -232,5 +177,4 @@ int main(int argc, char* argv[]) {
         }
     }
     writeToPly(pointCloud, outputFile);
-    std::cout << omp_get_max_threads() << " threads were used" << std::endl;
 }

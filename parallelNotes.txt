@@ -36,3 +36,21 @@ on medium studio with 100 trials, 4 threads:
 parallel 32s
 serial 113s
 
+PROFILING 2 ELECTRIC BOOGALOO
+88435studio,
+        0.995,
+        0.995,
+        1000,
+        0.02
+1 thread: 106s, 102, 110, 113, 134 average 113
+2 threads: 55s, 49, 50, 50, 58 average 52.4
+3 threads: 32s, 41, 34, 37, 34 average 35.6
+4 threads: 39s, 26, 32, 34, 28 average 31.8
+
+
+
+
+excel for graphs or online
+python on laptop
+
+consistently float images above or below paragraph
