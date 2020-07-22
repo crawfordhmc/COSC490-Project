@@ -10,6 +10,12 @@
 *.userosscache
 *.sln.docstates
 
+# Cmake files
+CMakeFiles/
+CMakeCache.txt
+VSInheritEnvironments.txt
+.cmake/api/v1/query/client-MicrosoftVS/query.json
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
