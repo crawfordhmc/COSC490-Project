@@ -9,11 +9,12 @@
 #include <string>
 #include <vector>
 #include <random>
+#include <omp.h>
 
 struct Point {
-  Eigen::Vector3d location;
-  Eigen::Vector3i colour;
-  int planeIx;
+	Eigen::Vector3d location;
+	Eigen::Vector3i colour;
+	int planeIx;
 };
 
 typedef std::vector<Point> PointCloud;
