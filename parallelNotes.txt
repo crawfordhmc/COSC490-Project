@@ -43,7 +43,7 @@ PROFILING 2 ELECTRIC BOOGALOO
         1000,
         0.02
 1 thread: 106s, 102, 110, 113, 134 average 113
-2 threads: 55s, 49, 50, 50, 58 average 52.4
+2 threads: 55 49 50 50 58 average 52.4
 3 threads: 32s, 41, 34, 37, 34 average 35.6
 4 threads: 39s, 26, 32, 34, 28 average 31.8
 

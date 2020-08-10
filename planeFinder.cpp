@@ -1,4 +1,5 @@
-#include "PointCloud.h"
+//#include "PointCloud.h"
+#include "VectorPC.h"
 
 void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
     colours->resize(11);
@@ -22,19 +23,20 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
     // When a plane is found, run through the next largest planes and reassign points by distance, then re-rank and save
     // Then run more trials if % of the scene is not explained
 
-PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, double explained, double threshold, unsigned int maxTrials) {
+// does making this a void function mean that the pc is still changed?
+void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double explained, double threshold, unsigned int maxTrials) {
 
     unsigned int plane = 0;
     std::vector<size_t> removedPoints;
     int threads;
-    omp_set_num_threads(4);
+    omp_set_num_threads(1);
 
     do {
         // Initial number of trials, very high from lowball initial inlier ratio
         double inlierRatio = 0.1;
         unsigned int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
         // Create random distribution for the point cloud, with other planes removed
-        std::uniform_int_distribution<size_t> distr(0, pointCloud.size() - 1);
+        std::uniform_int_distribution<size_t> distr(0, pointCloud.size - 1);
         Eigen::Hyperplane<double, 3> bestPlane;
         std::vector<size_t> bestPoints;
 
@@ -42,7 +44,7 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
         while (trial < numTrials && trial < maxTrials) {
 
             // If not enough points remaining not on a plane, continue to next trial
-            if (pointCloud.size() - removedPoints.size() < 3) {
+            if (pointCloud.size - removedPoints.size() < 3) {
                 std::cout << "RANSAC trial " << (trial + 1) << " failed" << std::endl;
                 trial++;
                 continue;
@@ -56,16 +58,16 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
                     foundPoints.push_back(index);
             }
             Eigen::Hyperplane<double, 3> thisPlane = Eigen::Hyperplane<double, 3>::Through(
-                pointCloud[foundPoints[0]].location,
-                pointCloud[foundPoints[1]].location,
-                pointCloud[foundPoints[2]].location);
+                pointCloud.getPoint(foundPoints[0]).location,
+                pointCloud.getPoint(foundPoints[1]).location,
+                pointCloud.getPoint(foundPoints[2]).location);
             // Add points closer than threshold to this plane
             std::vector<size_t> thisPoints;
             //OpenMP requires signed integrals for its loop variables... interesting
             signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
-            for (i = 0; i < pointCloud.size(); ++i) {
-                if (thisPlane.absDistance(pointCloud[i].location) < threshold)
+            for (i = 0; i < pointCloud.size; ++i) {
+                if (thisPlane.absDistance(pointCloud.getPoint(i).location) < threshold)
 #pragma omp critical
                     thisPoints.push_back(i);
                 // limit a single thread on the first trial of the first plane to printing the number of threads being used
@@ -76,7 +78,7 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
             if (thisPoints.size() > bestPoints.size()) {
                 bestPlane = thisPlane;
                 bestPoints = thisPoints;
-                inlierRatio = (float)bestPoints.size() / (pointCloud.size() - removedPoints.size());
+                inlierRatio = (float)bestPoints.size() / (pointCloud.size - removedPoints.size());
                 numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
 
             }
@@ -87,16 +89,14 @@ PointCloud ransac(PointCloud pointCloud, std::mt19937 gen, double successProb, d
             bestPlane.coeffs()[0] << "x + " << bestPlane.coeffs()[1] << "y + " << bestPlane.coeffs()[2] << "z + " << bestPlane.coeffs()[3] << " = 0" << std::endl;
         // Save point indexes of the best plane from all trials to be removed
         for (size_t j = 0; j < bestPoints.size(); ++j) {
-            pointCloud[bestPoints[j]].planeIx = plane;
+            pointCloud.setPointPlane(bestPoints[j], plane);
             removedPoints.push_back(bestPoints[j]); // opportunity to do reclaiming here?
             // could only compare planes that intersect close to the bounding box?
         }
         plane++;
 
-    } while ((float)removedPoints.size()/pointCloud.size() < explained);
+    } while ((float)removedPoints.size()/pointCloud.size < explained);
     std::cout << omp_get_max_threads() << " threads were used" << std::endl;
-
-    return pointCloud;
 
 }
 
@@ -131,50 +131,33 @@ int main(int argc, char* argv[]) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    PointCloud pointCloud = tinyReadFromPly(inputFile);
+    // THIS IS THE IMPLEMENTATION DESCISION
+    VectorPC pointCloud(inputFile);
 
     // Checking if number of points is too big for signed long long type (this aint gonna happen lmao)
-    if (pointCloud.size() > LLONG_MAX) {
+    if (pointCloud.size > LLONG_MAX) {
         std::cout << "Model is too big - reduce points to " << LLONG_MAX << " or less" << std::endl;
         return 1;
     }
 
-    // Determine the threshold as a % of model size
-    // (coordinate center is all over the place, so biggest/smallest signed point difference gives bounding box)
-    double xs = pointCloud[0].location[0];
-    double xl = pointCloud[0].location[0];
-    double ys = pointCloud[0].location[1];
-    double yl = pointCloud[0].location[1];
-    double zs = pointCloud[0].location[2];
-    double zl = pointCloud[0].location[2];
-    // chunk parallelize this if its slow?
-    for (size_t i = 1; i < pointCloud.size(); i++) {
-        xs = std::min(xs, pointCloud[i].location[0]);
-        xl = std::max(xl, pointCloud[i].location[0]);
-        ys = std::min(ys, pointCloud[i].location[1]);
-        yl = std::max(yl, pointCloud[i].location[1]);
-        zs = std::min(zs, pointCloud[i].location[2]);
-        zl = std::max(zl, pointCloud[i].location[2]);
-    }
-    // get x/y/z difference and compute average scale factor for the model
-    double scale = (xl - xs + yl - ys + zl - zs) / 3;
-    // apply a small % to the value to get a sensible threshold
-    threshold = scale_parameter * scale;
+    threshold = pointCloud.threshold(scale_parameter);
     std::cout << "Auto-generated threshold is " << threshold << std::endl;
 
     // Set up some colours to assign to the planes that are found
     std::vector<Eigen::Vector3i> colours;
     initialiseColours(&colours);
 
-    pointCloud = ransac(pointCloud, gen, success, explained, threshold, maxTrials);
+    //does this alter the VectorPC?
+    ransac(pointCloud, gen, success, explained, threshold, maxTrials);
 
     // Recolour points according to their plane then save the results
+    // This could be paralle if slow but eh
     std::cout << "Writing points to " << outputFile << std::endl;
-    for (auto& point : pointCloud) {
-        if (point.planeIx >= 0) {
-            point.colour = colours[point.planeIx % colours.size()];
+    for (int val = 0; val <= pointCloud.size; ++val) {
+        if (pointCloud.getPoint(val).planeIx >= 0) {
+            pointCloud.setPointColour(val, colours[pointCloud.getPoint(val).planeIx % colours.size()]);
             // idea: color planes with limited colors based on avoiding intersecting plane's colors
         }
     }
-    writeToPly(pointCloud, outputFile);
+    pointCloud.writeToPly(outputFile);
 }

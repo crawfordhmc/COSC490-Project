@@ -5,6 +5,7 @@
 
 # LAB FILES
 /PLY
+octree.cpp
 
 # User-specific files
 *.rsuser
