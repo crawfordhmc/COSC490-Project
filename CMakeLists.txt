@@ -17,7 +17,13 @@ endif()
 add_executable( PlaneDetector 
 planeFinder.cpp
 PointCloud.cpp
-PointCloud.h   "PointCloud.cpp" "VectorPC.h")
+PointCloud.h
+VectorPC.cpp
+VectorPC.h
+UniformPC.cpp
+UniformPC.h 
+OctreePC.cpp
+OctreePC.h )
 
 target_link_libraries( PlaneDetector PRIVATE Eigen3::Eigen)
 target_link_libraries( PlaneDetector PRIVATE tinyply)

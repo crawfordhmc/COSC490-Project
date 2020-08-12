@@ -147,7 +147,6 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Vector3i> colours;
     initialiseColours(&colours);
 
-    //does this alter the VectorPC?
     ransac(pointCloud, gen, success, explained, threshold, maxTrials);
 
     // Recolour points according to their plane then save the results

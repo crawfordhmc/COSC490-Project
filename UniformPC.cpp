@@ -1,10 +1,10 @@
-#include "VectorPC.h"
+#include "UniformPC.h"
 
 #include <iostream>
 #include <fstream>
 #include <sstream>
 
-VectorPC::VectorPC(const std::string& filepath) : PointCloud(filepath) {
+UniformPC::UniformPC(const std::string& filepath) : PointCloud(filepath) {
 
     Point defaultPoint;
     defaultPoint.location = Eigen::Vector3d::Zero();
@@ -22,12 +22,12 @@ VectorPC::VectorPC(const std::string& filepath) : PointCloud(filepath) {
 }
 
 // these three may not need to be virtual functions depending on access methods
-PointCloud::Point VectorPC::getPoint(int index) { return pc[index]; }
-void VectorPC::setPointPlane(int index, int planeID) { pc[index].planeIx = planeID; }
-void VectorPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].colour = colour; }
+PointCloud::Point UniformPC::getPoint(int index) { return pc[index]; }
+void UniformPC::setPointPlane(int index, int planeID) { pc[index].planeIx = planeID; }
+void UniformPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].colour = colour; }
 
 
-float VectorPC::threshold(float scale_parameter) {
+float UniformPC::threshold(float scale_parameter) {
     // Determine the threshold as a % of model size
     // (coordinate center is all over the place, so biggest/smallest signed point difference gives bounding box)
     double xs = pc[0].location[0];
@@ -52,7 +52,7 @@ float VectorPC::threshold(float scale_parameter) {
 }
 
 
- void VectorPC::writeToPly(const std::string& filename) {
+void UniformPC::writeToPly(const std::string& filename) {
     std::ofstream fout(filename);
     fout << "ply\n" //write the header
         << "format ascii 1.0\n"

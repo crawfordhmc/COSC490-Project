@@ -1,5 +1,5 @@
-#ifndef VECTOR_PC_H
-#define VECTOR_PC_H
+#ifndef OCTREE_PC_H
+#define OCTREE_PC_H
 
 #include "PointCloud.h"
 
@@ -8,13 +8,13 @@
 #include <sstream>
 #include <string>
 
-class VectorPC : public PointCloud {
+class OctreePC : public PointCloud {
 protected:
     std::vector<Point> pc;
 
 public:
 
-    VectorPC(const std::string& filepath);
+    OctreePC(const std::string& filepath);
     virtual Point getPoint(int index);
     virtual void setPointPlane(int index, int planeID);
     virtual void setPointColour(int index, Eigen::Vector3i colour);

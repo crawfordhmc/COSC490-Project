@@ -30,7 +30,7 @@ public:
 	virtual float threshold(float scale_parameter) = 0;
 	virtual void writeToPly(const std::string& filename) = 0;
 
-private:
+protected:
 	std::vector<Eigen::Vector3f> verts;
 	std::vector<Eigen::Matrix<uint8_t, 3, 1>> cols;
 };
