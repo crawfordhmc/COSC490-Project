@@ -1,13 +1,10 @@
 TODO
-Profile 1, 2, 3, 4 threads to predict further threads improvement (close other programs)
-(hyperthreading isn’t possible on this computer, try on lewis’s computer hyperthreading at some point)
 
-Abstract/Introduction
+Planar intersection: find line, see if line goes within bounding box (don't need to know exactly where just if)
+direction of line is the cross product of the plane's normal vectors
 
-Background
-Link for papers in the field: https://web.stanford.edu/class/cs231m/spring-2014/docs/ransac.pdf
-
-Content
+Eigen::ParametrizedLine could be useful to represent the line (or the planes?)
+cross product the normals
 
 
 Parallel level 1: Planes

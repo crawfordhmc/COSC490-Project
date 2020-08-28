@@ -5,7 +5,12 @@
 #include <sstream>
 
 UniformPC::UniformPC(const std::string& filepath) : PointCloud(filepath) {
+    // find bounding coordinates
+    // assign the given volumes of voxels to the model dimensions
+    // each cell is defined by the positive octrant corner point + the voxel size
+    // for each point, hash their index in the vector into a cell
 
+    // cell are progressed through by a plane with cleary's algorithm
     Point defaultPoint;
     defaultPoint.location = Eigen::Vector3d::Zero();
     defaultPoint.colour = Eigen::Vector3i::Zero();
@@ -25,6 +30,27 @@ UniformPC::UniformPC(const std::string& filepath) : PointCloud(filepath) {
 PointCloud::Point UniformPC::getPoint(int index) { return pc[index]; }
 void UniformPC::setPointPlane(int index, int planeID) { pc[index].planeIx = planeID; }
 void UniformPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].colour = colour; }
+
+
+// Returns a vector of points within the threshold to the given hyperplane
+// (also prints the number of threads being used for the calculations)
+std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane) {
+    std::vector<size_t> thisPoints;
+    int threads = 0;
+    //OpenMP requires signed integrals for its loop variables... interesting
+    signed long long i = 0;
+#pragma omp parallel for shared(thisPoints) private (i)
+    for (i = 0; i < pc.size(); ++i) {
+        if (thisPlane.absDistance(pc[i].location) < threshold)
+#pragma omp critical
+            thisPoints.push_back(i);
+        if (omp_get_thread_num() == 0 && trial == 0 && plane == 0)
+            threads = omp_get_max_threads();
+    }
+    if (trial == 0 && plane == 0)
+        std::cout << threads << " threads are being used" << std::endl;
+    return thisPoints;
+}
 
 
 float UniformPC::threshold(float scale_parameter) {

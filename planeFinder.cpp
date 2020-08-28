@@ -1,5 +1,6 @@
-//#include "PointCloud.h"
 #include "VectorPC.h"
+#include "UniformPC.h"
+#include "OctreePC.h"
 
 void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
     colours->resize(11);
@@ -18,12 +19,7 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
 }
 
 
-    //idea: get user estimate of minimum number of planes
-    // When running loads of trials, keep that many of the next largest planes
-    // When a plane is found, run through the next largest planes and reassign points by distance, then re-rank and save
-    // Then run more trials if % of the scene is not explained
 
-// does making this a void function mean that the pc is still changed?
 void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double explained, double threshold, unsigned int maxTrials) {
 
     unsigned int plane = 0;
@@ -40,7 +36,7 @@ void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double
         Eigen::Hyperplane<double, 3> bestPlane;
         std::vector<size_t> bestPoints;
 
-        int trial = 0;
+        unsigned int trial = 0;
         while (trial < numTrials && trial < maxTrials) {
 
             // If not enough points remaining not on a plane, continue to next trial
@@ -62,18 +58,8 @@ void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double
                 pointCloud.getPoint(foundPoints[1]).location,
                 pointCloud.getPoint(foundPoints[2]).location);
             // Add points closer than threshold to this plane
-            std::vector<size_t> thisPoints;
-            //OpenMP requires signed integrals for its loop variables... interesting
-            signed long long i = 0;
-#pragma omp parallel for shared(thisPoints) private (i)
-            for (i = 0; i < pointCloud.size; ++i) {
-                if (thisPlane.absDistance(pointCloud.getPoint(i).location) < threshold)
-#pragma omp critical
-                    thisPoints.push_back(i);
-                // limit a single thread on the first trial of the first plane to printing the number of threads being used
-                if (trial == 0 && omp_get_thread_num() == 0 && plane == 0)
-                    threads = omp_get_num_threads();
-            }
+            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane, trial, threshold, plane);
+
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
                 bestPlane = thisPlane;
@@ -90,13 +76,14 @@ void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double
         // Save point indexes of the best plane from all trials to be removed
         for (size_t j = 0; j < bestPoints.size(); ++j) {
             pointCloud.setPointPlane(bestPoints[j], plane);
-            removedPoints.push_back(bestPoints[j]); // opportunity to do reclaiming here?
-            // could only compare planes that intersect close to the bounding box?
+            removedPoints.push_back(bestPoints[j]);
         }
         plane++;
 
     } while ((float)removedPoints.size()/pointCloud.size < explained);
-    std::cout << omp_get_max_threads() << " threads were used" << std::endl;
+
+    // Reclaiming points
+
 
 }
 
@@ -111,10 +98,12 @@ int main(int argc, char* argv[]) {
     float threshold = -1;
     int maxTrials = 1000;
     float scale_parameter = 0.01;
+    std::string structure = "";
 
     // Parse the command line
-    if (argc != 7) {
+    if (argc < 7 || argc > 8) {
         std::cout << "Usage: planeFinder <input file> <output file> <probability of success> <ratio of scene to be explained by planes> <max RANSAC trials> <scale factor>" << std::endl;
+        std::cout << "optional: \"uniform\" or \"vector\" space subdivision" << std::endl;
         exit(-2);
     }
     else {
@@ -124,6 +113,8 @@ int main(int argc, char* argv[]) {
         explained = atof(argv[4]);
         maxTrials = atoi(argv[5]);
         scale_parameter = atof(argv[6]);
+        if (argc == 8)
+            structure = argv[7];
     }
 
     // Set up random seed
@@ -131,8 +122,13 @@ int main(int argc, char* argv[]) {
     std::random_device rd;
     std::mt19937 gen(rd());
 
-    // THIS IS THE IMPLEMENTATION DESCISION
+    // Data structure descision - define default initially
     VectorPC pointCloud(inputFile);
+    if (structure == "uniform")
+        UniformPC pointCloud(inputFile);
+    else if (structure == "octree")
+        OctreePC pointCloud(inputFile);
+
 
     // Checking if number of points is too big for signed long long type (this aint gonna happen lmao)
     if (pointCloud.size > LLONG_MAX) {
@@ -152,7 +148,7 @@ int main(int argc, char* argv[]) {
     // Recolour points according to their plane then save the results
     // This could be paralle if slow but eh
     std::cout << "Writing points to " << outputFile << std::endl;
-    for (int val = 0; val <= pointCloud.size; ++val) {
+    for (int val = 0; val < pointCloud.size; ++val) {
         if (pointCloud.getPoint(val).planeIx >= 0) {
             pointCloud.setPointColour(val, colours[pointCloud.getPoint(val).planeIx % colours.size()]);
             // idea: color planes with limited colors based on avoiding intersecting plane's colors

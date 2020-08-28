@@ -73,3 +73,42 @@ PointCloud::PointCloud(const std::string& filepath) {
 		std::cerr << "Caught tinyply exception: " << e.what() << std::endl;
 	}
  }
+
+
+//Returns the line intersection of the given planes within the given bounding box, if any
+//args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
+Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
+	double xs, double xl, double ys, double yl, double zs, double zl) {
+	Eigen::Vector3d vec = p1.normal().cross(p2.normal());
+	double b1 = p1.coeffs()[1];
+	double c1 = p1.coeffs()[2];
+	double d1 = p1.coeffs()[3];
+	double a2 = p1.coeffs()[0];
+	double b2 = p1.coeffs()[1];
+	double c2 = p1.coeffs()[2];
+	double d2 = p1.coeffs()[3];
+	// assuming the origin is within the bounding box
+
+	// assuming line intersects with x = 0
+	double z = ((b2 / b1) * d1 - d2) / (c2 - c1 * b2 / b1);
+	if (z > zs && z < zl) {
+		double y = (-c1 * z - d1) / b1;
+		if (y > ys && y < yl)
+			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(0, y, z), vec);
+	// assuming line intersects with y = 0
+	double z = ;
+	if (z > zs && z < zl) {
+		double x = ;
+		if (x > xs && x < xl)
+			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, 0, z), vec);
+	}
+	// assuming line intersects with z = 0
+	double y = ();
+	if (y > ys && y < yl) {
+		double x = ;
+		if (x > xs && x < xl)
+			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, 0), vec);
+	}
+	// intersection does not occur within the bounding box
+	return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(NAN, NAN, NAN), Eigen::Vector3d(NAN, NAN, NAN));
+}
