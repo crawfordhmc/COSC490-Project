@@ -1,10 +1,12 @@
 TODO
 
-Planar intersection: find line, see if line goes within bounding box (don't need to know exactly where just if)
-direction of line is the cross product of the plane's normal vectors
+test plane intersection
+hash point indexes into cells
+cleary's algorithm to get adjacent cells to plane
+play around with cell size
 
-Eigen::ParametrizedLine could be useful to represent the line (or the planes?)
-cross product the normals
+
+
 
 
 Parallel level 1: Planes
