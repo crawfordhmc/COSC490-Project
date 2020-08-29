@@ -1,8 +1,8 @@
 TODO
 
-test plane intersection
 hash point indexes into cells
 cleary's algorithm to get adjacent cells to plane
+test plane intersection
 play around with cell size
 
 

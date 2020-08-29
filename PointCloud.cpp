@@ -67,12 +67,68 @@ PointCloud::PointCloud(const std::string& filepath) {
 		cols = std::vector<Eigen::Matrix<uint8_t, 3, 1>>(colors->count); // assuming input values are 8 bit unsigned ints
 		std::memcpy(cols.data(), colors->buffer.get(), numColorsBytes);
 
+		Point defaultPoint;
+
+		defaultPoint.location = Eigen::Vector3d::Zero();
+		defaultPoint.colour = Eigen::Vector3i::Zero();
+		defaultPoint.planeIx = -1;
+		pc.resize(verts.size(), defaultPoint);
+
+		pc[0].location = verts[0].cast<double>();
+		pc[0].colour = cols[0].cast<int>();
+		XS = pc[0].location[0];
+		XL = pc[0].location[0];
+		YS = pc[0].location[1];
+		YL = pc[0].location[1];
+		ZS = pc[0].location[2];
+		ZL = pc[0].location[2];
+
+		for (size_t p = 1; p < pc.size(); ++p) {
+			pc[p].location = verts[p].cast<double>();
+			pc[p].colour = cols[p].cast<int>();
+			XS = std::min(XS, pc[p].location[0]);
+			XL = std::max(XL, pc[p].location[0]);
+			YS = std::min(YS, pc[p].location[1]);
+			YL = std::max(YL, pc[p].location[1]);
+			ZS = std::min(ZS, pc[p].location[2]);
+			ZL = std::max(ZL, pc[p].location[2]);
+		}
+
+		size = pc.size();
+
 		}
 	catch (const std::exception& e)
 	{
 		std::cerr << "Caught tinyply exception: " << e.what() << std::endl;
 	}
  }
+
+
+// thots: should this method return which bounding box side it intersected with?
+// not much use for standard intersections, however voxel intersections we already know how the ray came in...
+// maybe make the plane checking code a seperate function, and call it in a different way in uniform space subdivision
+// this means that the inputs may not be needed if this function was moved to vector PC and kept abstract here...
+
+//double[] pointcloud::intersectlines(double k, double i_min, double i_max, double j_min, double j_max, 
+//	double i1, double i2, double j1, double j2, double k1, double k2, double d1, double d2) {
+//
+//	double i = ((j1 / j2) * (k1 * k + d1) - k2 * k - d2) / (i2 - i1 * j1 / j2);
+//	if (i > i_min && i < i_max) {
+//		double j = (-i1 * i - k1 * k - d1) / j1;
+//		if (j > j_min && j < j_max)
+//			return[i, j];
+//	}
+//	return false;
+//}
+
+
+// Determine the threshold as a % of model size
+float PointCloud::threshold(float scale_parameter) {
+	// get x/y/z difference and compute average scale factor for the model
+	double scale = (XL - XS + YL - YS + ZL - ZS) / 3;
+	// apply a small % to the value to get a sensible threshold
+	return scale_parameter * scale;
+}
 
 
 //Returns the line intersection of the given planes within the given bounding box, if any
@@ -139,4 +195,10 @@ Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane
 	// if the plane intersection line does intersect with the lower x, y or z plane of the bounding box,
 	// the two planes do not intersect anywhere within the bounding box
 	return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(NAN, NAN, NAN), Eigen::Vector3d(NAN, NAN, NAN));
+}
+
+//Returns the line intersection of the given planes within the model's bounding box, if any
+//args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
+Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2) {
+	return PointCloud::intersectPlanes(p1, p2, XS, XL, YS, YL, ZS, ZL);
 }

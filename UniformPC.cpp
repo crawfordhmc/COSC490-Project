@@ -4,27 +4,35 @@
 #include <fstream>
 #include <sstream>
 
-UniformPC::UniformPC(const std::string& filepath) : PointCloud(filepath) {
-    // find bounding coordinates
-    // assign the given volumes of voxels to the model dimensions
-    // each cell is defined by the positive octrant corner point + the voxel size
-    // for each point, hash their index in the vector into a cell
 
-    // cell are progressed through by a plane with cleary's algorithm
-    Point defaultPoint;
-    defaultPoint.location = Eigen::Vector3d::Zero();
-    defaultPoint.colour = Eigen::Vector3i::Zero();
-    defaultPoint.planeIx = -1;
-    pc.resize(verts.size(), defaultPoint);
-    signed long long p;
-#pragma omp parallel for private(p)
-    for (p = 0; p < pc.size(); ++p) {
-        pc[p].location = verts[p].cast<double>();
-        pc[p].colour = cols[p].cast<int>();
+UniformPC::UniformPC(const std::string& filepath) : PointCloud(filepath) {
+
+    // assign the given volumes of voxels to the model dimensions
+    voxel_size = PointCloud::threshold(10);
+    x_voxels = ceil((XL - XS) / voxel_size);
+    y_voxels = ceil((YL - YS) / voxel_size);
+    z_voxels = ceil((ZL - ZS) / voxel_size);
+    // a pointer to a vector is used so the point vectors can be stored elsewhere
+    // check how best to order these
+    std::vector<std::vector<std::vector<std::vector<size_t>*>>> cells(x_voxels, std::vector<std::vector<std::vector<size_t>*>>(y_voxels, std::vector<std::vector<size_t>*>(z_voxels)));
+
+    // for each point, hash their index in the vector into a cell
+    for (size_t i = 0; i < pc.size(); ++i) {
+        size_t x = floor((pc[i].location[0] - XS) / x_voxels);
+        size_t y = floor((pc[i].location[1] - YS) / y_voxels);
+        size_t z = floor((pc[i].location[2] - ZS) / z_voxels);
+        //CHECK
+        if (pc[i].location[0] < XS + x * voxel_size || XS + (x+1) * voxel_size <= pc[i].location[0])
+            std::cout << "uh oh spaghettios" << std::endl;
+        if (pc[i].location[1] < YS + y * voxel_size || YS + (y+1) * voxel_size <= pc[i].location[1])
+            std::cout << "uh oh spaghettios" << std::endl;
+        if (pc[i].location[2] < ZS + z * voxel_size || ZS + (z+1) * voxel_size <= pc[i].location[2])
+            std::cout << "uh oh spaghettios" << std::endl;
+        cells[x][y][z]->push_back(i);
     }
 
-    size = pc.size();
 }
+
 
 // these three may not need to be virtual functions depending on access methods
 PointCloud::Point UniformPC::getPoint(int index) { return pc[index]; }
@@ -35,46 +43,35 @@ void UniformPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].co
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
 std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane) {
+    std::vector<int> indexes;
+    std::vector<std::vector<std::vector<bool>>> visited(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
+    // 3D version of Cleary's algorithm
+    //xline = PointCloud::intersectPlanes(thisPlane, Eigen::HyperPlane<double, 3>(x = XL))
+    //find an intersection with the bounding box walls e.g. x
+    // for each voxel on that line, run intersection on its points, mark as visited, run intersection on the neighbouring voxels if not already and check the next voxel in the x direction
+    //
+    //visited[x][y][z] = true;
+    return checkPoints(indexes, thisPlane, trial, threshold, plane);
+
+}
+
+
+std::vector<size_t> UniformPC::checkPoints(std::vector<int> indexes, Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane) {
     std::vector<size_t> thisPoints;
     int threads = 0;
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
-    for (i = 0; i < pc.size(); ++i) {
-        if (thisPlane.absDistance(pc[i].location) < threshold)
+    for (i = 0; i < indexes.size(); ++i) {
+        if (thisPlane.absDistance(pc[indexes[i]].location) < threshold)
 #pragma omp critical
-            thisPoints.push_back(i);
+            thisPoints.push_back(indexes[i]);
         if (omp_get_thread_num() == 0 && trial == 0 && plane == 0)
             threads = omp_get_max_threads();
     }
     if (trial == 0 && plane == 0)
         std::cout << threads << " threads are being used" << std::endl;
     return thisPoints;
-}
-
-
-float UniformPC::threshold(float scale_parameter) {
-    // Determine the threshold as a % of model size
-    // (coordinate center is all over the place, so biggest/smallest signed point difference gives bounding box)
-    double xs = pc[0].location[0];
-    double xl = pc[0].location[0];
-    double ys = pc[0].location[1];
-    double yl = pc[0].location[1];
-    double zs = pc[0].location[2];
-    double zl = pc[0].location[2];
-    // chunk parallelize this if its slow?
-    for (size_t i = 1; i < pc.size(); i++) {
-        xs = std::min(xs, pc[i].location[0]);
-        xl = std::max(xl, pc[i].location[0]);
-        ys = std::min(ys, pc[i].location[1]);
-        yl = std::max(yl, pc[i].location[1]);
-        zs = std::min(zs, pc[i].location[2]);
-        zl = std::max(zl, pc[i].location[2]);
-    }
-    // get x/y/z difference and compute average scale factor for the model
-    double scale = (xl - xs + yl - ys + zl - zs) / 3;
-    // apply a small % to the value to get a sensible threshold
-    return scale_parameter * scale;
 }
 
 

@@ -82,7 +82,6 @@ void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double
 
     } while ((float)removedPoints.size()/pointCloud.size < explained);
 
-    // Reclaiming points
 
 
 }
@@ -146,7 +145,7 @@ int main(int argc, char* argv[]) {
     ransac(pointCloud, gen, success, explained, threshold, maxTrials);
 
     // Recolour points according to their plane then save the results
-    // This could be paralle if slow but eh
+    // This could be parallel if slow but eh
     std::cout << "Writing points to " << outputFile << std::endl;
     for (int val = 0; val < pointCloud.size; ++val) {
         if (pointCloud.getPoint(val).planeIx >= 0) {

@@ -10,7 +10,8 @@
 
 class UniformPC : public PointCloud {
 protected:
-    std::vector<Point> pc;
+    double voxel_size;
+    int x_voxels, y_voxels, z_voxels;
 
 public:
 
@@ -19,7 +20,7 @@ public:
     virtual void setPointPlane(int index, int planeID);
     virtual void setPointColour(int index, Eigen::Vector3i colour);
     virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane);
-    virtual float threshold(float scale_parameter);
+    std::vector<size_t> UniformPC::checkPoints(std::vector<int> indexes, Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane);
     virtual void writeToPly(const std::string& filename);
 };
 #endif
