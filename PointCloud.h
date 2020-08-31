@@ -24,9 +24,9 @@ public:
 	size_t size = 0;
 
 	PointCloud(const std::string& filepath);
-	Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
+	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
 		double xs, double xl, double ys, double yl, double zs, double zl);
-	Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2);
+	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2);
 
 	virtual Point getPoint(int index) = 0;
 	virtual void setPointPlane(int index, int planeID) = 0;

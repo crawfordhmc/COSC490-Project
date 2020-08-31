@@ -45,11 +45,30 @@ void UniformPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].co
 std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane) {
     std::vector<int> indexes;
     std::vector<std::vector<std::vector<bool>>> visited(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
-    // 3D version of Cleary's algorithm
-    //xline = PointCloud::intersectPlanes(thisPlane, Eigen::HyperPlane<double, 3>(x = XL))
+    char axis;
+    char direction = '+';
+
     //find an intersection with the bounding box walls e.g. x
+    Eigen::Vector3d xnorm(1, 0, 0);
+    Eigen::Vector3d corner(XS, YS, ZS);
+    Eigen::ParametrizedLine<double, 3>* start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>(thisPlane));
+    if (start_line != NULL && abs(start_line->direction()[0]) < 0.001) {
+        axis = 'x';
+        if (abs(start_line->origin()[0] - XL) < 0.001) // positive side of bounding box
+            direction = '-';
+    }
+    else if (start_line != NULL && abs(start_line->direction()[1]) < 0.001) {
+        axis = 'y';
+        if (abs(start_line->origin()[0] - YL) < 0.001) // positive side of bounding box
+            direction = '-';
+    }
+    else if (start_line != NULL && abs(start_line->direction()[2]) < 0.001) {
+        if (abs(start_line->origin()[0] - ZL) < 0.001) // positive side of bounding box
+            direction = '-';
+    }
+    else std::cout << "oh no babey what is you doing" << std::endl;
     // for each voxel on that line, run intersection on its points, mark as visited, run intersection on the neighbouring voxels if not already and check the next voxel in the x direction
-    //
+    
     //visited[x][y][z] = true;
     return checkPoints(indexes, thisPlane, trial, threshold, plane);
 

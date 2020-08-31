@@ -133,7 +133,7 @@ float PointCloud::threshold(float scale_parameter) {
 
 //Returns the line intersection of the given planes within the given bounding box, if any
 //args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
-Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
+Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
 	double xs, double xl, double ys, double yl, double zs, double zl) {
 	Eigen::Vector3d vec = p1.normal().cross(p2.normal());
 	double a1 = p1.coeffs()[0];
@@ -151,15 +151,16 @@ Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane
 	double z = ((b2 / b1)*(a1*xs + d1) - a2*xs - d2) / (c2 - c1*b2 / b1);
 	if (z > zs && z < zl) {
 		double y = (-c1*z - a1*xs - d1)/b1;
-		if (y > ys && y < yl)
-			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(xs, y, z), vec);
+		if (y > ys && y < yl) {
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(xs, y, z), vec);
+		}
 	}
 	// assuming line intersects with x = xl
 	double z = ((b2/b1)*(a1*xl + d1) - a2*xl - d2)/(c2 - c1*b2 / b1);
 	if (z > zs && z < zl) {
 		double y = (-c1*z - a1*xl - d1)/b1;
 		if (y > ys && y < yl)
-			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(xl, y, z), vec);
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(xl, y, z), vec);
 	}
 
 	// assuming line intersects with y = ys
@@ -167,14 +168,14 @@ Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane
 	if (x > xs && x < xl) {
 		double z = (-a1*x - b1*ys - d1)/c1;
 		if (z > zs && z < zl)
-			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, ys, z), vec);
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, ys, z), vec);
 	}
 	// assuming line intersects with y = yl
 	double x = ((c2/c1)*(b1*yl + d1) - b2*yl - d2)/(a2 - a1*c2/c1);
 	if (x > xs && x < xl) {
 		double z = (-a1*x - b1*yl - d1)/c1;
 		if (z > zs && z < zl)
-			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, ys, z), vec);
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, ys, z), vec);
 	}
 
 	// assuming line intersects with z = zs
@@ -182,23 +183,23 @@ Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane
 	if (y > ys && y < yl) {
 		double x = (-b1*y - c1*zs - d1)/a1;
 		if (x > xs && x < xl)
-			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, zs), vec);
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, zs), vec);
 	}
 	// assuming line intersects with z = zl
 	double y = ((a2/a1)*(c1*zl + d1) - c2*zl - d2)/(b2 - b1*a2 / a1);
 	if (y > ys && y < yl) {
 		double x = (-b1*y - c1*zl - d1)/a1;
 		if (x > xs && x < xl)
-			return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, zs), vec);
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, zs), vec);
 	}
 
 	// if the plane intersection line does intersect with the lower x, y or z plane of the bounding box,
 	// the two planes do not intersect anywhere within the bounding box
-	return Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(NAN, NAN, NAN), Eigen::Vector3d(NAN, NAN, NAN));
+	return NULL;
 }
 
 //Returns the line intersection of the given planes within the model's bounding box, if any
 //args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
-Eigen::ParametrizedLine<double, 3> PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2) {
+Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2) {
 	return PointCloud::intersectPlanes(p1, p2, XS, XL, YS, YL, ZS, ZL);
 }
