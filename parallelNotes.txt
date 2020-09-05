@@ -4,6 +4,9 @@ cleary's algorithm to get adjacent cells to plane
 test plane intersection
 play around with cell size
 
+simplification ideas:
+send a point defining the plane to the intersector
+use the coefficients to estimate which asxis a plane will exit the voxel on
 
 
 

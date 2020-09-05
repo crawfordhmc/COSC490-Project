@@ -31,8 +31,8 @@ public:
 	virtual Point getPoint(int index) = 0;
 	virtual void setPointPlane(int index, int planeID) = 0;
 	virtual void setPointColour(int index, Eigen::Vector3i colour) = 0;
-	virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane) = 0;
-	float threshold(float scale_parameter);
+	virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) = 0;
+	float setThreshold(float scale_parameter);
 	virtual void writeToPly(const std::string& filename) = 0;
 
 protected:
@@ -51,6 +51,8 @@ protected:
 	double YL;
 	double ZS;
 	double ZL;
+
+	double threshold;
 };
 
 #endif

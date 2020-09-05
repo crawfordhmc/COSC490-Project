@@ -58,7 +58,7 @@ void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double
                 pointCloud.getPoint(foundPoints[1]).location,
                 pointCloud.getPoint(foundPoints[2]).location);
             // Add points closer than threshold to this plane
-            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane, trial, threshold, plane);
+            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane, trial, plane);
 
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    threshold = pointCloud.threshold(scale_parameter);
+    threshold = pointCloud.setThreshold(scale_parameter);
     std::cout << "Auto-generated threshold is " << threshold << std::endl;
 
     // Set up some colours to assign to the planes that are found
