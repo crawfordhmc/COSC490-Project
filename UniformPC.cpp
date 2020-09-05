@@ -48,48 +48,27 @@ void UniformPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].co
 
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
-std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane) {
-    std::vector<int> indexes;
-    std::vector<std::vector<std::vector<bool>>> visited(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
-    char axis;
-    char direction = '+';
-
-    //find an intersection with the bounding box walls
-    Eigen::Vector3d xnorm(1, 0, 0);
-    Eigen::Vector3d corner(XS, YS, ZS);
+std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane) {
+    std::vector<size_t> indexes;
+    // if an origin intersecting with another axis is found, this could be a nice origin to do the points from
     Eigen::ParametrizedLine<double, 3>* start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>(thisPlane));
-    if (start_line != NULL && abs(start_line->direction()[0]) < 0.001) {
-        axis = 'x';
-        if (abs(start_line->origin()[0] - XL) < 0.001) // positive side of bounding box
-            direction = '-';
-    }
-    else if (start_line != NULL && abs(start_line->direction()[1]) < 0.001) {
-        axis = 'y';
-        if (abs(start_line->origin()[0] - YL) < 0.001) // positive side of bounding box
-            direction = '-';
-    }
-    else if (start_line != NULL && abs(start_line->direction()[2]) < 0.001) {
-        axis = 'z';
-        if (abs(start_line->origin()[0] - ZL) < 0.001) // positive side of bounding box
-            direction = '-';
-    }
-    else std::cout << "oh no babey what is you doing" << std::endl;
-    // for each voxel on that line, run intersection on its points, mark as visited, run intersection on the neighbouring voxels if not already and check the next voxel in the x direction
-    
-    //x + example
-    //cleary(start_line);
-    //visited[x][y][z] = true;
-    return checkPoints(indexes, thisPlane, trial, plane);
+    Eigen::Vector3d tangent; // unit vector tangent to start line pointing towards bounding box
+    Eigen::Vector3d p = start_line->origin();
+    do {
+        cleary(indexes, Eigen::ParametrizedLine<double, 3>(p, tangent));
+        p += threshold * start_line->direction();
+    } while (); //p stays within the other bounds
+    return indexes;
 
 }
 
 
-void UniformPC::addPoints(std::vector<size_t>* indexes, std::vector<size_t> thisPoints, Eigen::Hyperplane<double, 3> thisPlane) {
+void UniformPC::addPoints(std::vector<size_t>* indexes, std::vector<size_t> thisPoints, Eigen::ParametrizedLine<double, 3> ray) {
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
     for (i = 0; i < indexes->size(); ++i) {
-        if (thisPlane.absDistance(pc[indexes->at(i)].location) < threshold)
+        if (abs(ray.distance(pc[indexes->at(i)].location)) < threshold) //absolute?
 #pragma omp critical
             thisPoints.push_back(indexes->at(i));
     }
@@ -97,8 +76,7 @@ void UniformPC::addPoints(std::vector<size_t>* indexes, std::vector<size_t> this
 
 
 //Returns the points within the threshold of a ray in a 3D bounding box
-std::vector<size_t> UniformPC::cleary(Eigen::ParametrizedLine<double, 3> ray, int axis, Eigen::Hyperplane<double, 3> thisPlane) {
-    std::vector<size_t> points;
+std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray) {
     Eigen::Vector3d p = ray.origin();
     //find current cell
     Eigen::Matrix<size_t, 3, 1> cell = hashCell(p);
@@ -113,7 +91,7 @@ std::vector<size_t> UniformPC::cleary(Eigen::ParametrizedLine<double, 3> ray, in
     do {
         if (!cells[cell[0]][cell[1]][cell[2]]->empty())
             //push thresholded points from cell onto points vector
-            addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane);
+            addPoints(cells[cell[0]][cell[1]][cell[2]], points, ray); // does adding the points need to be with a whole plane or just the ray?
         //work out next cell
         if (abs(dx) < abs(dy) && abs(dx) < abs(dz)) {
             dx += theta_x;
