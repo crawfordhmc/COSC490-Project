@@ -6,6 +6,9 @@ And then each cell has its points iterated through serially
 But then checking which cells have been already added parallely is a pain...
 
 
+plan for today is to draft the cleary plane algorithm section of the report, and possible failed point reassesment section
+
+
 TODO
 profile time taken for uniform SS
 play around with cell size

@@ -6,8 +6,11 @@
 
 
 //key idea for octree:
-// take in a maximum points per voxel (minimum size is the threshold)
-// 
+// construct uniform space subdivision with voxels being the threshold size, using a dense tree instead of a 3d array
+// if voxel + neighbours total points < point threshold, merge into a larger voxel and append point vectors to parent node
+// going up the tree
+// can be done in parallel at each depth
+// for ease of programming, accessing voxel dimensions should be a method that returns them calulated from tree position
 OctreePC::OctreePC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {}
 
 
