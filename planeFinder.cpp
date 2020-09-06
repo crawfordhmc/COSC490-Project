@@ -20,12 +20,11 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
 
 
 
-void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double explained, double threshold, unsigned int maxTrials) {
+std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double explained, double threshold, unsigned int maxTrials) {
 
     unsigned int plane = 0;
     std::vector<size_t> removedPoints;
-    int threads;
-    omp_set_num_threads(1);
+    std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     do {
         // Initial number of trials, very high from lowball initial inlier ratio
@@ -79,10 +78,11 @@ void ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double
             removedPoints.push_back(bestPoints[j]);
         }
         plane++;
+        planes.push_back(bestPlane);
 
     } while ((float)removedPoints.size()/pointCloud.size < explained);
 
-
+    return planes;
 
 }
 
@@ -142,7 +142,29 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Vector3i> colours;
     initialiseColours(&colours);
 
-    ransac(pointCloud, gen, success, explained, threshold, maxTrials);
+    std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, explained, threshold, maxTrials);
+    if (true) { //fix for structure
+        for (int p1 = 0; p1 < planes.size(); p1++) {
+            for (int p2 = 0; p2 < planes.size(); p2++) {
+                if (p1 == p2) continue;
+                Eigen::ParametrizedLine<double, 3> *intersection = pointCloud.intersectPlanes(planes[p1], planes[p2]);
+                if (intersection == NULL) continue;
+                signed long long i = 0;
+#pragma omp parallel for
+                for (i = 0; i < pointCloud.size; ++i) {
+                    if (intersection->distance(pointCloud.getPoint(i).location) > threshold) continue;
+                    if (pointCloud.getPoint(i).planeIx == p1 && planes[p2].absDistance(pointCloud.getPoint(i).location) < planes[p1].absDistance(pointCloud.getPoint(i).location)) {
+                        pointCloud.setPointPlane(i, p2);
+                        std::cout << "reassigned some pointy bois" << std::endl;
+                    }
+                    if (pointCloud.getPoint(i).planeIx == p2 && planes[p1].absDistance(pointCloud.getPoint(i).location) < planes[p2].absDistance(pointCloud.getPoint(i).location)) {
+                        pointCloud.setPointPlane(i, p1);
+                        std::cout << "reassigned some pointy bois" << std::endl;
+                    }
+                }
+            }
+        }
+    }
 
     // Recolour points according to their plane then save the results
     // This could be parallel if slow but eh

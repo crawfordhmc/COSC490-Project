@@ -18,6 +18,7 @@ void VectorPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].col
 std::vector<size_t> VectorPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) {
     std::vector<size_t> thisPoints;
     int threads = 0;
+    //omp_set_num_threads(1);
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)

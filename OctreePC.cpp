@@ -4,7 +4,12 @@
 #include <fstream>
 #include <sstream>
 
+
+//key idea for octree:
+// take in a maximum points per voxel (minimum size is the threshold)
+// 
 OctreePC::OctreePC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {}
+
 
 // these three may not need to be virtual functions depending on access methods
 PointCloud::Point OctreePC::getPoint(int index) { return pc[index]; }

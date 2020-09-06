@@ -12,10 +12,10 @@ class UniformPC : public PointCloud {
 protected:
     double voxel_size;
     int x_voxels, y_voxels, z_voxels;
-    std::vector<std::vector<std::vector<std::vector<size_t>*>>> cells;
+    std::vector<std::vector<std::vector<std::vector<size_t>>>> cells;
     std::vector<size_t> hashCell(Eigen::Vector3d p);
-    void addPoints(std::vector<size_t>* indexes, std::vector<size_t> thisPoints, Eigen::ParametrizedLine<double, 3> ray);
-    std::vector<size_t> cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray, std::vector<std::vector<std::vector<bool>>> visited);
+    void addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, Eigen::Hyperplane<double, 3> plane);
+    std::vector<size_t> cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray, std::vector<std::vector<std::vector<bool>>> visited, Eigen::Hyperplane<double, 3> plane);
 
 public:
 

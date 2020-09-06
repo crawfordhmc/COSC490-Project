@@ -1,6 +1,13 @@
-TODO
+NOTES
+have taken the space reallocation hit on the 4D vector: initializing unique empty vectors for each pointer is proving difficult
+Would switch to a linked list, but to add points from the same vector in parallel requires element acces rather than just iterating
+Solution could be to have a different parallel structure where cleary's rays are done in parallel, and access to the pushing vector is synched.
+And then each cell has its points iterated through serially
+But then checking which cells have been already added parallely is a pain...
 
-test plane intersection
+
+TODO
+profile time taken for uniform SS
 play around with cell size
 
 simplification ideas:

@@ -4,32 +4,27 @@
 #include <fstream>
 #include <sstream>
 
+const int CHONK = 100;
+
 
 UniformPC::UniformPC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {
 
     // assign the given volumes of voxels to the model dimensions
-    voxel_size = PointCloud::threshold;
+    voxel_size = CHONK*threshold;
     x_voxels = ceil((XL - XS) / voxel_size);
     y_voxels = ceil((YL - YS) / voxel_size);
     z_voxels = ceil((ZL - ZS) / voxel_size);
-    // a pointer to a vector is used so the point vectors can be stored elsewhere
+    // a pointer to a vector is used so the point list vectors can be stored elsewhere
     // check how best to order these for access time
-    cells = std::vector<std::vector<std::vector<std::vector<size_t>*>>>(x_voxels, std::vector<std::vector<std::vector<size_t>*>>(y_voxels, std::vector<std::vector<size_t>*>(z_voxels)));
-    for (size_t i = 0; i < x_voxels; i++) {
-        for (size_t j = 0; j < y_voxels; j++) {
-            for (size_t k = 0; k < z_voxels; k++) {
-                std::vector<size_t> list = std::vector<size_t>();
-                cells[i][j][k] = &list;
-            }
-        }
-    }
+    //cells = std::vector<std::vector<std::vector<std::vector<size_t>*>>>(x_voxels, std::vector<std::vector<std::vector<size_t>*>>(y_voxels, std::vector<std::vector<size_t>*>(z_voxels)));
+    cells = std::vector<std::vector<std::vector<std::vector<size_t>>>>(x_voxels, std::vector<std::vector<std::vector<size_t>>>(y_voxels, std::vector<std::vector<size_t>>(z_voxels)));
 
     std::vector<size_t> cell;
     // for each point, hash their index in the vector into a cell
     for (size_t i = 0; i < pc.size(); ++i) {
         cell = hashCell(pc[i].location);
         auto a = cells[cell[0]][cell[1]][cell[2]];
-        cells[cell[0]][cell[1]][cell[2]]->push_back(i);
+        cells[cell[0]][cell[1]][cell[2]].push_back(i);
     }
 }
 
@@ -60,7 +55,6 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     std::vector<size_t> indexes;
     // 3D truth array of visited voxels
     std::vector<std::vector<std::vector<bool>>> visited;
-    // NOTE: SHOULD RAYS BE CAST EVERY VOXEL WIDTH INSTEAD AND ADJACENT CELLS BE ADDED WITH VISIT CHECKING IN CLEARYS INSTEAD?
     visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
 
     Eigen::ParametrizedLine<double, 3>* start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>(thisPlane));
@@ -85,7 +79,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
 
     // point along the line to start with
     Eigen::Vector3d p = start_line->origin();
-    Eigen::Vector3d step = threshold * start_line->direction();
+    Eigen::Vector3d step = voxel_size * start_line->direction(); //should this be threshold or voxel size?
     // cast first ray one step in?
     p += step;
     // make sure correct direction to move p along the line into the bounding box
@@ -95,7 +89,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     }
 
     do {
-        cleary(indexes, Eigen::ParametrizedLine<double, 3>(p, norm), visited);
+        cleary(indexes, Eigen::ParametrizedLine<double, 3>(p, norm), visited, thisPlane);
         p += step;
     } while (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL); //p stays within the other bounds
 
@@ -104,20 +98,20 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
 }
 
 
-void UniformPC::addPoints(std::vector<size_t>* indexes, std::vector<size_t> thisPoints, Eigen::ParametrizedLine<double, 3> ray) {
+void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, Eigen::Hyperplane<double, 3> plane) {
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
-    for (i = 0; i < indexes->size(); ++i) {
-        if (abs(ray.distance(pc[indexes->at(i)].location)) < threshold) //absolute?
+    for (i = 0; i < indexes.size(); ++i) {
+        if (plane.absDistance(pc[indexes[i]].location) < threshold)
 #pragma omp critical
-            thisPoints.push_back(indexes->at(i));
+            thisPoints.push_back(indexes[i]);
     }
 }
 
 
 //Returns the points within the threshold of a ray in a 3D bounding box
-std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray, std::vector<std::vector<std::vector<bool>>> visited) {
+std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray, std::vector<std::vector<std::vector<bool>>> visited, Eigen::Hyperplane<double, 3> plane) {
     Eigen::Vector3d p = ray.origin();
     //find current cell
     std::vector<size_t> cell = hashCell(p);
@@ -130,9 +124,9 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::Paramet
     double dz = theta_z;
 
     do {
-        if (!visited[cell[0]][cell[1]][cell[2]] && !cells[cell[0]][cell[1]][cell[2]]->empty()) {
+        if (!visited[cell[0]][cell[1]][cell[2]] && !cells[cell[0]][cell[1]][cell[2]].empty()) {
             //push thresholded points from cell onto points vector
-            addPoints(cells[cell[0]][cell[1]][cell[2]], points, ray);
+            addPoints(cells[cell[0]][cell[1]][cell[2]], points, plane);
             visited[cell[0]][cell[1]][cell[2]] = true;
         }
         //work out next cell
