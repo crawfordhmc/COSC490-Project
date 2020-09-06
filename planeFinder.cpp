@@ -122,11 +122,11 @@ int main(int argc, char* argv[]) {
     std::mt19937 gen(rd());
 
     // Data structure descision - define default initially
-    VectorPC pointCloud(inputFile);
+    VectorPC pointCloud(inputFile, scale_parameter);
     if (structure == "uniform")
-        UniformPC pointCloud(inputFile);
+        UniformPC pointCloud(inputFile, scale_parameter);
     else if (structure == "octree")
-        OctreePC pointCloud(inputFile);
+        OctreePC pointCloud(inputFile, scale_parameter);
 
 
     // Checking if number of points is too big for signed long long type (this aint gonna happen lmao)
@@ -135,7 +135,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    threshold = pointCloud.setThreshold(scale_parameter);
+    threshold = pointCloud.threshold;
     std::cout << "Auto-generated threshold is " << threshold << std::endl;
 
     // Set up some colours to assign to the planes that are found

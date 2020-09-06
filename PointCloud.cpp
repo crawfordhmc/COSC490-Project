@@ -7,7 +7,7 @@
 using namespace tinyply;
 
 
-PointCloud::PointCloud(const std::string& filepath) {
+PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 	std::cout << "........................................................................\n";
 	std::cout << "Now Reading: " << filepath << std::endl;
 	std::unique_ptr<std::istream> file_stream;
@@ -95,8 +95,11 @@ PointCloud::PointCloud(const std::string& filepath) {
 		}
 
 		size = pc.size();
-
-		}
+		// get x/y/z difference and compute average scale factor for the model
+		double scale = (XL - XS + YL - YS + ZL - ZS) / 3;
+		// apply a small % to the value to get a sensible threshold
+		threshold = scale_parameter * scale;
+	}
 	catch (const std::exception& e)
 	{
 		std::cerr << "Caught tinyply exception: " << e.what() << std::endl;
@@ -122,20 +125,11 @@ PointCloud::PointCloud(const std::string& filepath) {
 //}
 
 
-// Determine the threshold as a % of model size
-float PointCloud::setThreshold(float scale_parameter) {
-	// get x/y/z difference and compute average scale factor for the model
-	double scale = (XL - XS + YL - YS + ZL - ZS) / 3;
-	// apply a small % to the value to get a sensible threshold
-	threshold =  scale_parameter * scale;
-	return threshold;
-}
-
-
 //Returns the line intersection of the given planes within the given bounding box, if any
 //args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
 Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
 	double xs, double xl, double ys, double yl, double zs, double zl) {
+	// direction of the intersection line
 	Eigen::Vector3d vec = p1.normal().cross(p2.normal());
 	vec.normalize();
 	double a1 = p1.coeffs()[0];
@@ -146,67 +140,55 @@ Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplan
 	double b2 = p1.coeffs()[1];
 	double c2 = p1.coeffs()[2];
 	double d2 = p1.coeffs()[3];
+	double x, y, z;
 
-	// is this nessecary?
-	// find intersections in order of most tangent to the axis, as this helps other methods later for the intersection line to not be close to parallel
-	int axis = std::max(vec[0], vec[1], vec[2]); //make index
-	int tries = 0;
-	while (tries < 3) {
-		if (axis == 0) {
-			// assuming line intersects with x = xs
-			double z = ((b2 / b1) * (a1 * xs + d1) - a2 * xs - d2) / (c2 - c1 * b2 / b1);
-			if (z > zs && z < zl) {
-				double y = (-c1 * z - a1 * xs - d1) / b1;
-				if (y > ys && y < yl) {
-					return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(xs, y, z), vec);
-				}
-			}
-			// assuming line intersects with x = xl
-			double z = ((b2 / b1) * (a1 * xl + d1) - a2 * xl - d2) / (c2 - c1 * b2 / b1);
-			if (z > zs && z < zl) {
-				double y = (-c1 * z - a1 * xl - d1) / b1;
-				if (y > ys && y < yl)
-					return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(xl, y, z), vec);
-			}
+	// assuming none of the coefficients are 0, unlikely with double prescision coefficients?
+
+	// assuming line intersects with x = xs
+	z = ((b2 / b1) * (a1 * xs + d1) - a2 * xs - d2) / (c2 - c1 * b2 / b1);
+	if (z > zs && z < zl) {
+		y = (-c1 * z - a1 * xs - d1) / b1;
+		if (y > ys && y < yl) {
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(xs, y, z), vec);
 		}
-		else if (axis == 1) {
-			// assuming line intersects with y = ys
-			double x = ((c2 / c1) * (b1 * ys + d1) - b2 * ys - d2) / (a2 - a1 * c2 / c1);
-			if (x > xs && x < xl) {
-				double z = (-a1 * x - b1 * ys - d1) / c1;
-				if (z > zs && z < zl)
-					return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, ys, z), vec);
-			}
-			// assuming line intersects with y = yl
-			double x = ((c2 / c1) * (b1 * yl + d1) - b2 * yl - d2) / (a2 - a1 * c2 / c1);
-			if (x > xs && x < xl) {
-				double z = (-a1 * x - b1 * yl - d1) / c1;
-				if (z > zs && z < zl)
-					return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, ys, z), vec);
-			}
-		}
-		else {
-			// assuming line intersects with z = zs
-			double y = ((a2 / a1) * (c1 * zs + d1) - c2 * zs - d2) / (b2 - b1 * a2 / a1);
-			if (y > ys && y < yl) {
-				double x = (-b1 * y - c1 * zs - d1) / a1;
-				if (x > xs && x < xl)
-					return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, zs), vec);
-			}
-			// assuming line intersects with z = zl
-			double y = ((a2 / a1) * (c1 * zl + d1) - c2 * zl - d2) / (b2 - b1 * a2 / a1);
-			if (y > ys && y < yl) {
-				double x = (-b1 * y - c1 * zl - d1) / a1;
-				if (x > xs && x < xl)
-					return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, zs), vec);
-			}
-		}
-		if (++tries == 1)
-			axis = std::max((axis + 1) % 3, (axis + 2) % 3); //make index
-		if (tries == 2)
-			axis = std::min((axis + 1) % 3, (axis + 2) % 3); //make index
 	}
-	// if the plane intersection line does intersect with the lower x, y or z plane of the bounding box,
+	// assuming line intersects with x = xl
+	z = ((b2 / b1) * (a1 * xl + d1) - a2 * xl - d2) / (c2 - c1 * b2 / b1);
+	if (z > zs && z < zl) {
+		y = (-c1 * z - a1 * xl - d1) / b1;
+		if (y > ys && y < yl)
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(xl, y, z), vec);
+	}
+
+	// assuming line intersects with y = ys
+	x = ((c2 / c1) * (b1 * ys + d1) - b2 * ys - d2) / (a2 - a1 * c2 / c1);
+	if (x > xs && x < xl) {
+		z = (-a1 * x - b1 * ys - d1) / c1;
+		if (z > zs && z < zl)
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, ys, z), vec);
+	}
+	// assuming line intersects with y = yl
+	x = ((c2 / c1) * (b1 * yl + d1) - b2 * yl - d2) / (a2 - a1 * c2 / c1);
+	if (x > xs && x < xl) {
+		z = (-a1 * x - b1 * yl - d1) / c1;
+		if (z > zs && z < zl)
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, ys, z), vec);
+	}
+
+	// assuming line intersects with z = zs
+	y = ((a2 / a1) * (c1 * zs + d1) - c2 * zs - d2) / (b2 - b1 * a2 / a1);
+	if (y > ys && y < yl) {
+		x = (-b1 * y - c1 * zs - d1) / a1;
+		if (x > xs && x < xl)
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, zs), vec);
+	}
+	// assuming line intersects with z = zl
+	y = ((a2 / a1) * (c1 * zl + d1) - c2 * zl - d2) / (b2 - b1 * a2 / a1);
+	if (y > ys && y < yl) {
+		x = (-b1 * y - c1 * zl - d1) / a1;
+		if (x > xs && x < xl)
+			return &Eigen::ParametrizedLine<double, 3>(Eigen::Vector3d(x, y, zs), vec);
+	}
 	// the two planes do not intersect anywhere within the bounding box
 	return NULL;
 }

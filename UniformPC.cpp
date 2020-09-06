@@ -5,7 +5,7 @@
 #include <sstream>
 
 
-UniformPC::UniformPC(const std::string& filepath) : PointCloud(filepath) {
+UniformPC::UniformPC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {
 
     // assign the given volumes of voxels to the model dimensions
     voxel_size = PointCloud::threshold;
@@ -13,29 +13,37 @@ UniformPC::UniformPC(const std::string& filepath) : PointCloud(filepath) {
     y_voxels = ceil((YL - YS) / voxel_size);
     z_voxels = ceil((ZL - ZS) / voxel_size);
     // a pointer to a vector is used so the point vectors can be stored elsewhere
-    // check how best to order these
+    // check how best to order these for access time
     cells = std::vector<std::vector<std::vector<std::vector<size_t>*>>>(x_voxels, std::vector<std::vector<std::vector<size_t>*>>(y_voxels, std::vector<std::vector<size_t>*>(z_voxels)));
-    //std::vector<std::vector<std::vector<std::vector<size_t>*>>> cells(x_voxels, std::vector<std::vector<std::vector<size_t>*>>(y_voxels, std::vector<std::vector<size_t>*>(z_voxels)));
-
-    // for each point, hash their index in the vector into a cell
-    for (size_t i = 0; i < pc.size(); ++i) {
-        Eigen::Matrix<size_t, 3, 1> cell = hashCell(pc[i].location);
-        cells[cell[0]][cell[1]][cell[2]]->push_back(i);
+    for (size_t i = 0; i < x_voxels; i++) {
+        for (size_t j = 0; j < y_voxels; j++) {
+            for (size_t k = 0; k < z_voxels; k++) {
+                std::vector<size_t> list = std::vector<size_t>();
+                cells[i][j][k] = &list;
+            }
+        }
     }
 
+    std::vector<size_t> cell;
+    // for each point, hash their index in the vector into a cell
+    for (size_t i = 0; i < pc.size(); ++i) {
+        cell = hashCell(pc[i].location);
+        auto a = cells[cell[0]][cell[1]][cell[2]];
+        cells[cell[0]][cell[1]][cell[2]]->push_back(i);
+    }
 }
 
 
-Eigen::Matrix<size_t, 3, 1> UniformPC::hashCell(Eigen::Vector3d p) {
-    size_t x = floor((p[0] - XS) / x_voxels);
-    size_t y = floor((p[1] - YS) / y_voxels);
-    size_t z = floor((p[2] - ZS) / z_voxels);
+std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
+    size_t x = floor((p[0] - XS) / voxel_size);
+    size_t y = floor((p[1] - YS) / voxel_size);
+    size_t z = floor((p[2] - ZS) / voxel_size);
     //CHECK
-    if (p[0] < XS + x * voxel_size || XS + (x + 1) * voxel_size <= p[0])
+    if (x > x_voxels)
         std::cout << "uh oh spaghettios" << std::endl;
-    if (p[1] < YS + y * voxel_size || YS + (y + 1) * voxel_size <= p[1])
+    if (y > y_voxels)
         std::cout << "uh oh spaghettios" << std::endl;
-    if (p[2] < ZS + z * voxel_size || ZS + (z + 1) * voxel_size <= p[2])
+    if (z > z_voxels)
         std::cout << "uh oh spaghettios" << std::endl;
     return {x, y, z};
 }
@@ -47,17 +55,50 @@ void UniformPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].co
 
 
 // Returns a vector of points within the threshold to the given hyperplane
-// (also prints the number of threads being used for the calculations)
-std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane) {
+std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) {
+    // indexes of points on the plane to be returned
     std::vector<size_t> indexes;
-    // if an origin intersecting with another axis is found, this could be a nice origin to do the points from
+    // 3D truth array of visited voxels
+    std::vector<std::vector<std::vector<bool>>> visited;
+    // NOTE: SHOULD RAYS BE CAST EVERY VOXEL WIDTH INSTEAD AND ADJACENT CELLS BE ADDED WITH VISIT CHECKING IN CLEARYS INSTEAD?
+    visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
+
     Eigen::ParametrizedLine<double, 3>* start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>(thisPlane));
-    Eigen::Vector3d tangent; // unit vector tangent to start line pointing towards bounding box
+
+    // direction of rays to be cast into the bounding box
+    Eigen::Vector3d norm = { 0, 0, 0 };
+    if (start_line != NULL && abs(start_line->direction()[0]) < 0.001) {
+        if (abs(start_line->origin()[0] - XL) < 0.001) // positive side of bounding box
+            norm[0] = -1;
+        else norm[0] = 1; // negative side of bounding box
+    }
+    else if (start_line != NULL && abs(start_line->direction()[1]) < 0.001) {
+        if (abs(start_line->origin()[0] - XL) < 0.001) // positive side of bounding box
+            norm[1] = -1;
+        else norm[1] = 1; // negative side of bounding box
+    }
+    else if (start_line != NULL && abs(start_line->direction()[2]) < 0.001) {
+        if (abs(start_line->origin()[0] - XL) < 0.001) // positive side of bounding box
+            norm[2] = -1;
+        else norm[2] = 1; // negative side of bounding box
+    }
+
+    // point along the line to start with
     Eigen::Vector3d p = start_line->origin();
+    Eigen::Vector3d step = threshold * start_line->direction();
+    // cast first ray one step in?
+    p += step;
+    // make sure correct direction to move p along the line into the bounding box
+    if (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL) { // assuming p's location on the starting axis isn't out by prescision?
+        step *= -1;
+        p += 2 * step;
+    }
+
     do {
-        cleary(indexes, Eigen::ParametrizedLine<double, 3>(p, tangent));
-        p += threshold * start_line->direction();
-    } while (); //p stays within the other bounds
+        cleary(indexes, Eigen::ParametrizedLine<double, 3>(p, norm), visited);
+        p += step;
+    } while (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL); //p stays within the other bounds
+
     return indexes;
 
 }
@@ -76,10 +117,10 @@ void UniformPC::addPoints(std::vector<size_t>* indexes, std::vector<size_t> this
 
 
 //Returns the points within the threshold of a ray in a 3D bounding box
-std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray) {
+std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray, std::vector<std::vector<std::vector<bool>>> visited) {
     Eigen::Vector3d p = ray.origin();
     //find current cell
-    Eigen::Matrix<size_t, 3, 1> cell = hashCell(p);
+    std::vector<size_t> cell = hashCell(p);
     //check these are correct?
     double theta_x = voxel_size / ray.direction()[0];
     double theta_y = voxel_size / ray.direction()[1];
@@ -89,9 +130,11 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::Paramet
     double dz = theta_z;
 
     do {
-        if (!cells[cell[0]][cell[1]][cell[2]]->empty())
+        if (!visited[cell[0]][cell[1]][cell[2]] && !cells[cell[0]][cell[1]][cell[2]]->empty()) {
             //push thresholded points from cell onto points vector
-            addPoints(cells[cell[0]][cell[1]][cell[2]], points, ray); // does adding the points need to be with a whole plane or just the ray?
+            addPoints(cells[cell[0]][cell[1]][cell[2]], points, ray);
+            visited[cell[0]][cell[1]][cell[2]] = true;
+        }
         //work out next cell
         if (abs(dx) < abs(dy) && abs(dx) < abs(dz)) {
             dx += theta_x;

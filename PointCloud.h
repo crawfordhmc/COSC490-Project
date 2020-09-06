@@ -22,8 +22,9 @@ public:
 
 	//number of points
 	size_t size = 0;
+	double threshold;
 
-	PointCloud(const std::string& filepath);
+	PointCloud(const std::string& filepath, float scale_parameter);
 	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
 		double xs, double xl, double ys, double yl, double zs, double zl);
 	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2);
@@ -32,7 +33,6 @@ public:
 	virtual void setPointPlane(int index, int planeID) = 0;
 	virtual void setPointColour(int index, Eigen::Vector3i colour) = 0;
 	virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) = 0;
-	float setThreshold(float scale_parameter);
 	virtual void writeToPly(const std::string& filename) = 0;
 
 protected:
@@ -51,8 +51,6 @@ protected:
 	double YL;
 	double ZS;
 	double ZL;
-
-	double threshold;
 };
 
 #endif

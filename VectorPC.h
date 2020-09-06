@@ -11,7 +11,7 @@
 class VectorPC : public PointCloud {
 public:
 
-    VectorPC(const std::string& filepath);
+    VectorPC(const std::string& filepath, float scale_parameter);
     virtual Point getPoint(int index);
     virtual void setPointPlane(int index, int planeID);
     virtual void setPointColour(int index, Eigen::Vector3i colour);

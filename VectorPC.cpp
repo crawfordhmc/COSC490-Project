@@ -4,7 +4,7 @@
 #include <fstream>
 #include <sstream>
 
-VectorPC::VectorPC(const std::string& filepath) : PointCloud(filepath) {}
+VectorPC::VectorPC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {}
 
 
 // these three may not need to be virtual functions depending on access methods

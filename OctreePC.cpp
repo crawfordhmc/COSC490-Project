@@ -4,7 +4,7 @@
 #include <fstream>
 #include <sstream>
 
-OctreePC::OctreePC(const std::string& filepath) : PointCloud(filepath) {}
+OctreePC::OctreePC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {}
 
 // these three may not need to be virtual functions depending on access methods
 PointCloud::Point OctreePC::getPoint(int index) { return pc[index]; }
@@ -14,7 +14,7 @@ void OctreePC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].col
 
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
-std::vector<size_t> OctreePC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, float threshold, int plane) {
+std::vector<size_t> OctreePC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) {
     std::vector<size_t> thisPoints;
     int threads = 0;
     //OpenMP requires signed integrals for its loop variables... interesting
