@@ -4,7 +4,7 @@
 #include <fstream>
 #include <sstream>
 
-const int CHONK = 100;
+const int CHONK = 2;
 
 
 UniformPC::UniformPC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {
@@ -18,6 +18,8 @@ UniformPC::UniformPC(const std::string& filepath, float scale_parameter) : Point
     // check how best to order these for access time
     //cells = std::vector<std::vector<std::vector<std::vector<size_t>*>>>(x_voxels, std::vector<std::vector<std::vector<size_t>*>>(y_voxels, std::vector<std::vector<size_t>*>(z_voxels)));
     cells = std::vector<std::vector<std::vector<std::vector<size_t>>>>(x_voxels, std::vector<std::vector<std::vector<size_t>>>(y_voxels, std::vector<std::vector<size_t>>(z_voxels)));
+
+    std::cout << "Doing uniform space subdivision of " << x_voxels << " by " << y_voxels << " by " << z_voxels << " voxels..." << std::endl;
 
     std::vector<size_t> cell;
     // for each point, hash their index in the vector into a cell
@@ -50,7 +52,7 @@ void UniformPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].co
 
 
 // Returns a vector of points within the threshold to the given hyperplane
-std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) {
+std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> removedPoints, unsigned int trial, int plane) {
     // indexes of points on the plane to be returned
     std::vector<size_t> indexes;
     // 3D truth array of visited voxels
@@ -89,7 +91,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     }
 
     do {
-        cleary(indexes, Eigen::ParametrizedLine<double, 3>(p, norm), visited, thisPlane);
+        cleary(indexes, removedPoints, Eigen::ParametrizedLine<double, 3>(p, norm), visited, thisPlane, plane);
         p += step;
     } while (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL); //p stays within the other bounds
 
@@ -98,20 +100,10 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
 }
 
 
-void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, Eigen::Hyperplane<double, 3> plane) {
-    //OpenMP requires signed integrals for its loop variables... interesting
-    signed long long i = 0;
-#pragma omp parallel for shared(thisPoints) private (i)
-    for (i = 0; i < indexes.size(); ++i) {
-        if (plane.absDistance(pc[indexes[i]].location) < threshold)
-#pragma omp critical
-            thisPoints.push_back(indexes[i]);
-    }
-}
-
-
 //Returns the points within the threshold of a ray in a 3D bounding box
-std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray, std::vector<std::vector<std::vector<bool>>> visited, Eigen::Hyperplane<double, 3> plane) {
+std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, std::vector<size_t> removedPoints, Eigen::ParametrizedLine<double, 3> ray, 
+    std::vector<std::vector<std::vector<bool>>> visited, Eigen::Hyperplane<double, 3> thisPlane, int plane) {
+    
     Eigen::Vector3d p = ray.origin();
     //find current cell
     std::vector<size_t> cell = hashCell(p);
@@ -126,7 +118,7 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::Paramet
     do {
         if (!visited[cell[0]][cell[1]][cell[2]] && !cells[cell[0]][cell[1]][cell[2]].empty()) {
             //push thresholded points from cell onto points vector
-            addPoints(cells[cell[0]][cell[1]][cell[2]], points, plane);
+            addPoints(cells[cell[0]][cell[1]][cell[2]], points, removedPoints, thisPlane, plane);
             visited[cell[0]][cell[1]][cell[2]] = true;
         }
         //work out next cell
@@ -145,6 +137,21 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, Eigen::Paramet
     } while (cell[0] >= 0 && cell[0] <= x_voxels || cell[1] >= 0 && cell[1] <= y_voxels || cell[2] >= 0 && cell[2] <= z_voxels);
     return points;
 }
+
+
+void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, std::vector<size_t> removedPoints, 
+    Eigen::Hyperplane<double, 3> thisPlane, int plane) {
+    
+    //OpenMP requires signed integrals for its loop variables... interesting
+    signed long long i = 0;
+#pragma omp parallel for shared(thisPoints) private (i)
+    for (i = 0; i < indexes.size(); ++i) {
+        if (plane == 0 || !std::binary_search(removedPoints.begin(), removedPoints.end(), i) && thisPlane.absDistance(pc[i].location) < threshold)
+#pragma omp critical
+            thisPoints.push_back(indexes[i]);
+    }
+}
+
 
 
 void UniformPC::writeToPly(const std::string& filename) {

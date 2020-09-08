@@ -14,8 +14,10 @@ protected:
     int x_voxels, y_voxels, z_voxels;
     std::vector<std::vector<std::vector<std::vector<size_t>>>> cells;
     std::vector<size_t> hashCell(Eigen::Vector3d p);
-    void addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, Eigen::Hyperplane<double, 3> plane);
-    std::vector<size_t> cleary(std::vector<size_t> points, Eigen::ParametrizedLine<double, 3> ray, std::vector<std::vector<std::vector<bool>>> visited, Eigen::Hyperplane<double, 3> plane);
+    void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, std::vector<size_t> removedPoints, 
+        Eigen::Hyperplane<double, 3> thisPlane, int plane);
+    std::vector<size_t> cleary(std::vector<size_t> points, std::vector<size_t> removedPoints, Eigen::ParametrizedLine<double, 3> ray, 
+        std::vector<std::vector<std::vector<bool>>> visited, Eigen::Hyperplane<double, 3> thisPlane, int plane);
 
 public:
 
@@ -23,7 +25,7 @@ public:
     virtual Point getPoint(int index);
     virtual void setPointPlane(int index, int planeID);
     virtual void setPointColour(int index, Eigen::Vector3i colour);
-    virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane);
+    virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> removedPoints, unsigned int trial, int plane);
     virtual void writeToPly(const std::string& filename);
 };
 #endif

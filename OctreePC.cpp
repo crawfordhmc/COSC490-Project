@@ -22,14 +22,14 @@ void OctreePC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].col
 
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
-std::vector<size_t> OctreePC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) {
+std::vector<size_t> OctreePC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> removedPoints, unsigned int trial, int plane) {
     std::vector<size_t> thisPoints;
     int threads = 0;
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
     for (i = 0; i < pc.size(); ++i) {
-        if (thisPlane.absDistance(pc[i].location) < threshold)
+        if (plane == 0 || !std::binary_search(removedPoints.begin(), removedPoints.end(), i) && thisPlane.absDistance(pc[i].location) < threshold)
 #pragma omp critical
             thisPoints.push_back(i);
         if (omp_get_thread_num() == 0 && trial == 0 && plane == 0)
