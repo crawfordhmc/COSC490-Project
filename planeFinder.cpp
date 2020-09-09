@@ -1,4 +1,3 @@
-#include "VectorPC.h"
 #include "UniformPC.h"
 #include "OctreePC.h"
 
@@ -43,7 +42,7 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
             while (foundPoints.size() < 3) {
                 size_t index = distr(gen);
                 // Save random point if not already part of a plane
-                if (removedPoints.end() == find(removedPoints.begin(), removedPoints.end(), index))
+                if (plane == 0 || !std::binary_search(removedPoints.begin(), removedPoints.end(), index))
                     foundPoints.push_back(index);
             }
             Eigen::Hyperplane<double, 3> thisPlane = Eigen::Hyperplane<double, 3>::Through(
@@ -119,13 +118,13 @@ int main(int argc, char* argv[]) {
 
     // Data structure descision
     // how to create a null object so what later things reference isn't lost in the if loops?
-
-    //if (argc == 7)
-        VectorPC pointCloud(inputFile, scale_parameter);
-    else if (structure == "uniform")
-        UniformPC pointCloud(inputFile, scale_parameter);
+    PointCloud pointCloud;
+    if (structure == "uniform")
+        pointCloud = UniformPC(inputFile, scale_parameter);
     else if (structure == "octree")
-        OctreePC pointCloud(inputFile, scale_parameter);
+        pointCloud = OctreePC(inputFile, scale_parameter);
+    else
+        pointCloud = PointCloud(inputFile, scale_parameter);
 
 
     // Checking if number of points is too big for signed long long type (this aint gonna happen lmao)
