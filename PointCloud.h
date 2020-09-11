@@ -33,7 +33,7 @@ public:
 	Point getPoint(int index);
 	void setPointPlane(int index, int planeID);
 	void setPointColour(int index, Eigen::Vector3i colour);
-	std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> removedPoints, unsigned int trial, int plane);
+	std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> remainingPoints, unsigned int trial, int plane);
 	void writeToPly(const std::string& filename);
 
 protected:

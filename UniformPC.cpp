@@ -25,7 +25,6 @@ UniformPC::UniformPC(const std::string& filepath, float scale_parameter) : Point
     // for each point, hash their index in the vector into a cell
     for (size_t i = 0; i < pc.size(); ++i) {
         cell = hashCell(pc[i].location);
-        auto a = cells[cell[0]][cell[1]][cell[2]];
         cells[cell[0]][cell[1]][cell[2]].push_back(i);
     }
 }
@@ -45,14 +44,9 @@ std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
     return {x, y, z};
 }
 
-// these three may not need to be virtual functions depending on access methods
-PointCloud::Point UniformPC::getPoint(int index) { return pc[index]; }
-void UniformPC::setPointPlane(int index, int planeID) { pc[index].planeIx = planeID; }
-void UniformPC::setPointColour(int index, Eigen::Vector3i colour) { pc[index].colour = colour; }
-
 
 // Returns a vector of points within the threshold to the given hyperplane
-std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> removedPoints, unsigned int trial, int plane) {
+std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> remainingPoints, unsigned int trial, int plane) {
     // indexes of points on the plane to be returned
     std::vector<size_t> indexes;
     // 3D truth array of visited voxels
@@ -91,7 +85,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     }
 
     do {
-        cleary(indexes, removedPoints, Eigen::ParametrizedLine<double, 3>(p, norm), visited, thisPlane, plane);
+        cleary(indexes, remainingPoints, Eigen::ParametrizedLine<double, 3>(p, norm), visited, thisPlane, plane);
         p += step;
     } while (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL); //p stays within the other bounds
 
@@ -101,7 +95,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
 
 
 //Returns the points within the threshold of a ray in a 3D bounding box
-std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, std::vector<size_t> removedPoints, Eigen::ParametrizedLine<double, 3> ray, 
+std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, std::vector<size_t> remainingPoints, Eigen::ParametrizedLine<double, 3> ray, 
     std::vector<std::vector<std::vector<bool>>> visited, Eigen::Hyperplane<double, 3> thisPlane, int plane) {
     
     Eigen::Vector3d p = ray.origin();
@@ -118,7 +112,7 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, std::vector<si
     do {
         if (!visited[cell[0]][cell[1]][cell[2]] && !cells[cell[0]][cell[1]][cell[2]].empty()) {
             //push thresholded points from cell onto points vector
-            addPoints(cells[cell[0]][cell[1]][cell[2]], points, removedPoints, thisPlane, plane);
+            addPoints(cells[cell[0]][cell[1]][cell[2]], points, remainingPoints, thisPlane, plane);
             visited[cell[0]][cell[1]][cell[2]] = true;
         }
         //work out next cell
@@ -139,36 +133,15 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, std::vector<si
 }
 
 
-void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, std::vector<size_t> removedPoints, 
+void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, std::vector<size_t> remainingPoints,
     Eigen::Hyperplane<double, 3> thisPlane, int plane) {
     
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
-    for (i = 0; i < indexes.size(); ++i) {
-        if (plane == 0 || !std::binary_search(removedPoints.begin(), removedPoints.end(), i) && thisPlane.absDistance(pc[i].location) < threshold)
+    for (i = 0; i < remainingPoints.size(); ++i) {
+        if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold)
 #pragma omp critical
-            thisPoints.push_back(indexes[i]);
+            thisPoints.push_back(remainingPoints[i]);
     }
-}
-
-
-
-void UniformPC::writeToPly(const std::string& filename) {
-    std::ofstream fout(filename);
-    fout << "ply\n" //write the header
-        << "format ascii 1.0\n"
-        << "element vertex " << size << "\n"
-        << "property float x\n"
-        << "property float y\n"
-        << "property float z\n"
-        << "property uchar red\n"
-        << "property uchar green\n"
-        << "property uchar blue\n"
-        << "end_header\n";
-    for (auto point : pc) {
-        fout << point.location.transpose() << " "
-            << point.colour.transpose() << "\n"; //output location and color
-    }
-    fout.close();
 }

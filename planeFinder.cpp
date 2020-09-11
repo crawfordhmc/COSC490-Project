@@ -19,10 +19,13 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
 
 
 
-std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double explained, double threshold, unsigned int maxTrials) {
+std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double noise, double threshold, unsigned int maxTrials) {
 
     unsigned int plane = 0;
-    std::vector<size_t> removedPoints;
+    std::vector<size_t> remainingPoints(pointCloud.size);
+    for (size_t i = 0; i < pointCloud.size; i++)
+        remainingPoints[i] = i;
+
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     do {
@@ -30,7 +33,7 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
         double inlierRatio = 0.01;
         unsigned int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
         // Create random distribution for the point cloud, with other planes removed
-        std::uniform_int_distribution<size_t> distr(0, pointCloud.size - 1);
+        std::uniform_int_distribution<size_t> distr(0, remainingPoints.size() - 1);
         Eigen::Hyperplane<double, 3> bestPlane;
         std::vector<size_t> bestPoints;
 
@@ -41,22 +44,20 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
             std::vector<size_t> foundPoints;
             while (foundPoints.size() < 3) {
                 size_t index = distr(gen);
-                // Save random point if not already part of a plane
-                if (plane == 0 || !std::binary_search(removedPoints.begin(), removedPoints.end(), index))
-                    foundPoints.push_back(index);
+                foundPoints.push_back(remainingPoints[index]);
             }
             Eigen::Hyperplane<double, 3> thisPlane = Eigen::Hyperplane<double, 3>::Through(
                 pointCloud.getPoint(foundPoints[0]).location,
                 pointCloud.getPoint(foundPoints[1]).location,
                 pointCloud.getPoint(foundPoints[2]).location);
             // Add points closer than threshold to this plane
-            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane, removedPoints, trial, plane);
+            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane, remainingPoints, trial, plane);
 
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
                 bestPlane = thisPlane;
                 bestPoints = thisPoints;
-                inlierRatio = (float)bestPoints.size() / (pointCloud.size - removedPoints.size());
+                inlierRatio = (float)bestPoints.size() / (remainingPoints.size());
                 numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
 
             }
@@ -65,17 +66,17 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
         // Other operations with bestPlane can be done here
         std::cout << trial << " RANSAC trials run for plane " << plane + 1 << ", equation: " <<
             bestPlane.coeffs()[0] << "x + " << bestPlane.coeffs()[1] << "y + " << bestPlane.coeffs()[2] << "z + " << bestPlane.coeffs()[3] << " = 0" << std::endl;
-        // Save point indexes of the best plane from all trials to be removed
+        // Remove point indexes of the best plane from all trials
         for (size_t j = 0; j < bestPoints.size(); ++j) {
             pointCloud.setPointPlane(bestPoints[j], plane);
-            removedPoints.push_back(bestPoints[j]);
+            std::vector<size_t>::iterator position = std::lower_bound(remainingPoints.begin(), remainingPoints.end(), bestPoints[j]);
+            if (position != remainingPoints.end())
+                remainingPoints.erase(position);
         }
-        //to allow faster searching of the removed points
-        std::sort(removedPoints.begin(), removedPoints.end());
         plane++;
         planes.push_back(bestPlane);
 
-    } while ((float)removedPoints.size()/pointCloud.size < explained);
+    } while ((float)remainingPoints.size()/pointCloud.size > noise);
 
     return planes;
 
@@ -88,7 +89,7 @@ int main(int argc, char* argv[]) {
     std::string inputFile = "";
     std::string outputFile = "";
     float success = 0.99;
-    float explained = 0.99;
+    float noise = 0.01;
     float threshold = -1;
     int maxTrials = 1000;
     float scale_parameter = 0.01;
@@ -96,7 +97,7 @@ int main(int argc, char* argv[]) {
 
     // Parse the command line
     if (argc < 7 || argc > 8) {
-        std::cout << "Usage: planeFinder <input file> <output file> <probability of success> <ratio of scene to be explained by planes> <max RANSAC trials> <scale factor>" << std::endl;
+        std::cout << "Usage: planeFinder <input file> <output file> <probability of success> <fraction of points to leave out> <max RANSAC trials> <scale factor>" << std::endl;
         std::cout << "optional: \"uniform\" or \"vector\" space subdivision" << std::endl;
         exit(-2);
     }
@@ -104,7 +105,7 @@ int main(int argc, char* argv[]) {
         inputFile = argv[1];
         outputFile = argv[2];
         success = atof(argv[3]);
-        explained = atof(argv[4]);
+        noise = atof(argv[4]);
         maxTrials = atoi(argv[5]);
         scale_parameter = atof(argv[6]);
         if (argc == 8)
@@ -120,11 +121,11 @@ int main(int argc, char* argv[]) {
     // how to create a null object so what later things reference isn't lost in the if loops?
     PointCloud pointCloud;
     if (structure == "uniform")
-        pointCloud = UniformPC(inputFile, scale_parameter);
+        UniformPC pointCloud = UniformPC(inputFile, scale_parameter);
     else if (structure == "octree")
-        pointCloud = OctreePC(inputFile, scale_parameter);
+        OctreePC pointCloud = OctreePC(inputFile, scale_parameter);
     else
-        pointCloud = PointCloud(inputFile, scale_parameter);
+        PointCloud pointCloud = PointCloud(inputFile, scale_parameter);
 
 
     // Checking if number of points is too big for signed long long type (this aint gonna happen lmao)
@@ -140,7 +141,7 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Vector3i> colours;
     initialiseColours(&colours);
 
-    std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, explained, threshold, maxTrials);
+    std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, noise, threshold, maxTrials);
 
     if (planes.size() > colours.size()) std::cout << "More planes than colours" << std::endl;
 
@@ -151,7 +152,7 @@ int main(int argc, char* argv[]) {
                 Eigen::ParametrizedLine<double, 3> *intersection = pointCloud.intersectPlanes(planes[p1], planes[p2]);
                 if (intersection == NULL) continue;
                 signed long long i = 0;
-//#pragma omp parallel for
+#pragma omp parallel for
                 for (i = 0; i < pointCloud.size; ++i) {
                     if (intersection->distance(pointCloud.getPoint(i).location) > threshold) continue;
                     if (pointCloud.getPoint(i).planeIx == p1 && planes[p2].absDistance(pointCloud.getPoint(i).location) < planes[p1].absDistance(pointCloud.getPoint(i).location)) {

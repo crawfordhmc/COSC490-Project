@@ -117,16 +117,16 @@ void PointCloud::setPointColour(int index, Eigen::Vector3i colour) { pc[index].c
 
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
-std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> removedPoints, unsigned int trial, int plane) {
+std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> remainingPoints, unsigned int trial, int plane) {
 	std::vector<size_t> thisPoints;
 	int threads = 1;
 	//OpenMP requires signed integrals for its loop variables... interesting
 	signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
-	for (i = 0; i < pc.size(); ++i) {
-		if ((plane == 0 || !std::binary_search(removedPoints.begin(), removedPoints.end(), i)) && thisPlane.absDistance(pc[i].location) < threshold)
+	for (i = 0; i < remainingPoints.size(); ++i) {
+		if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold)
 #pragma omp critical
-			thisPoints.push_back(i);
+			thisPoints.push_back(remainingPoints[i]);
 		if (omp_get_thread_num() == 0 && trial == 0 && plane == 0)
 			threads = omp_get_max_threads();
 	}
@@ -134,6 +134,7 @@ std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPla
 		std::cout << threads << " threads are being used" << std::endl;
 	return thisPoints;
 }
+
 
 
 // thots: should this method return which bounding box side it intersected with?

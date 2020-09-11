@@ -18,8 +18,6 @@ add_executable( PlaneDetector
 planeFinder.cpp
 PointCloud.cpp
 PointCloud.h
-VectorPC.cpp
-VectorPC.h
 UniformPC.cpp
 UniformPC.h 
 OctreePC.cpp
