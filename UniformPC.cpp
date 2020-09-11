@@ -51,30 +51,40 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     std::vector<std::vector<std::vector<bool>>> visited;
     visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
 
-    Eigen::ParametrizedLine<double, 3>* start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>(thisPlane));
-
     // direction of rays to be cast into the bounding box
     Eigen::Vector3d norm = { 0, 0, 0 };
-    if (start_line != NULL && abs(start_line->direction()[0]) < 0.001) {
-        if (abs(start_line->origin()[0] - XL) < 0.001) // positive side of bounding box
-            norm[0] = -1;
-        else norm[0] = 1; // negative side of bounding box
+
+    // starting from x axis
+    Eigen::ParametrizedLine<double, 3>* start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 1, 0, 0 }, { XS, 0, 0 }));
+    if (start_line != NULL) norm[0] = 1;
+    if (start_line == NULL) {
+        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 1, 0, 0 }, { XL, 0, 0 }));
+        if (start_line != NULL) norm[0] = -1;
     }
-    else if (start_line != NULL && abs(start_line->direction()[1]) < 0.001) {
-        if (abs(start_line->origin()[0] - XL) < 0.001) // positive side of bounding box
-            norm[1] = -1;
-        else norm[1] = 1; // negative side of bounding box
+    // starting from y axis
+    if (start_line == NULL) {
+        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 0, 1, 0 }, { 0, YS, 0 }));
+        if (start_line != NULL) norm[1] = 1;
     }
-    else if (start_line != NULL && abs(start_line->direction()[2]) < 0.001) {
-        if (abs(start_line->origin()[0] - XL) < 0.001) // positive side of bounding box
-            norm[2] = -1;
-        else norm[2] = 1; // negative side of bounding box
+    if (start_line == NULL) {
+        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 0, 1, 0 }, { 0, YL, 0 }));
+        if (start_line != NULL) norm[1] = -1;
+    }
+    //starting from z axis
+    if (start_line == NULL) {
+        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 0, 0, 1 }, { 0, 0, ZS }));
+        if (start_line != NULL) norm[2] = 1;
+    }
+    if (start_line == NULL) {
+        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 0, 0, 1 }, { 0, 0, ZL }));
+        if (start_line != NULL) norm[2] = -1;
     }
 
     // point along the line to start with
     Eigen::Vector3d p = start_line->origin();
-    Eigen::Vector3d step = voxel_size * start_line->direction(); //should this be threshold or voxel size?
-    // cast first ray one step in?
+    Eigen::Vector3d step = start_line->direction(); //how to ensure this is pointing INTO the bounding box?
+    for (int i = 0; i < 3; i++) step[i] *= voxel_size;
+    // cast first ray one step in? CHECK THIS
     p += step;
     // make sure correct direction to move p along the line into the bounding box
     if (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL) { // assuming p's location on the starting axis isn't out by prescision?

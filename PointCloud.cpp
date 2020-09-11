@@ -143,10 +143,10 @@ Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplan
 	double b1 = p1.coeffs()[1];
 	double c1 = p1.coeffs()[2];
 	double d1 = p1.coeffs()[3];
-	double a2 = p1.coeffs()[0];
-	double b2 = p1.coeffs()[1];
-	double c2 = p1.coeffs()[2];
-	double d2 = p1.coeffs()[3];
+	double a2 = p2.coeffs()[0];
+	double b2 = p2.coeffs()[1];
+	double c2 = p2.coeffs()[2];
+	double d2 = p2.coeffs()[3];
 	double x, y, z;
 
 	// assuming none of the coefficients are 0, unlikely with double prescision coefficients?
@@ -203,7 +203,7 @@ Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplan
 //Returns the line intersection of the given planes within the model's bounding box, if any
 //args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
 Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2) {
-	return PointCloud::intersectPlanes(p1, p2, XS, XL, YS, YL, ZS, ZL);
+	return PointCloud::intersectPlanes(p1, p2, XS - threshold, XL + threshold, YS - threshold, YL + threshold, ZS - threshold, ZL + threshold);
 }
 
 
