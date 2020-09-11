@@ -10,8 +10,8 @@
 // if voxel + neighbours total points < point threshold, merge into a larger voxel and append point vectors to parent node
 // going up the tree
 // can be done in parallel at each depth
-// for ease of programming, accessing voxel dimensions should be a method that returns them calulated from tree position
-OctreePC::OctreePC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {}
+// for ease of programming, accessing voxel dimensions should be a method that returns them calculated from tree position
+OctreePC::OctreePC(PointCloud& p) : PointCloud(p) {}
 
 
 // Returns a vector of points within the threshold to the given hyperplane

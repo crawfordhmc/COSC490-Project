@@ -11,7 +11,7 @@
 class OctreePC : public PointCloud {
 public:
 
-    OctreePC(const std::string& filepath, float scale_parameter);
+    OctreePC(PointCloud &p);
     std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> remainingPoints, unsigned int trial, int plane);
 };
 #endif

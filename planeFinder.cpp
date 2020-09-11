@@ -83,6 +83,21 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
 }
 
 
+void recolor(PointCloud pointCloud, std::string outputFile, std::vector<Eigen::Vector3i> colours) {
+    // Recolour points according to their plane then save the results
+    std::cout << "Writing points to " << outputFile << std::endl;
+    signed long long val = 0;
+#pragma omp parallel for
+    for (val = 0; val < pointCloud.size; ++val) {
+        if (pointCloud.getPoint(val).planeIx >= 0) {
+            pointCloud.setPointColour(val, colours[pointCloud.getPoint(val).planeIx % colours.size()]);
+            // idea: color planes with limited colors based on avoiding intersecting plane's colors
+        }
+    }
+    pointCloud.writeToPly(outputFile);
+}
+
+
 int main(int argc, char* argv[]) {
 
     // Command line arguments
@@ -116,67 +131,52 @@ int main(int argc, char* argv[]) {
     // (random size generation taken from https://en.cppreference.com/w/cpp/numeric/random/uniform_int_distribution)
     std::random_device rd;
     std::mt19937 gen(rd());
-
-    // Data structure descision
-    // how to create a null object so what later things reference isn't lost in the if loops?
-    PointCloud pointCloud;
-    if (structure == "uniform")
-        UniformPC pointCloud = UniformPC(inputFile, scale_parameter);
-    else if (structure == "octree")
-        OctreePC pointCloud = OctreePC(inputFile, scale_parameter);
-    else
-        PointCloud pointCloud = PointCloud(inputFile, scale_parameter);
-
-
-    // Checking if number of points is too big for signed long long type (this aint gonna happen lmao)
-    if (pointCloud.size > LLONG_MAX) {
-        std::cout << "Model is too big - reduce points to " << LLONG_MAX << " or less" << std::endl;
-        return 1;
-    }
-
-    threshold = pointCloud.threshold;
-    std::cout << "Auto-generated threshold is " << threshold << std::endl;
-
     // Set up some colours to assign to the planes that are found
     std::vector<Eigen::Vector3i> colours;
     initialiseColours(&colours);
 
-    std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+    std::vector<Eigen::Hyperplane<double, 3>> planes;
 
-    if (planes.size() > colours.size()) std::cout << "More planes than colours" << std::endl;
-
-    if (true) { //fix for structure
-        for (int p1 = 0; p1 < planes.size(); p1++) {
-            for (int p2 = 0; p2 < planes.size(); p2++) {
-                if (p1 == p2) continue;
-                Eigen::ParametrizedLine<double, 3> *intersection = pointCloud.intersectPlanes(planes[p1], planes[p2]);
-                if (intersection == NULL) continue;
-                signed long long i = 0;
-#pragma omp parallel for
-                for (i = 0; i < pointCloud.size; ++i) {
-                    if (intersection->distance(pointCloud.getPoint(i).location) > threshold) continue;
-                    if (pointCloud.getPoint(i).planeIx == p1 && planes[p2].absDistance(pointCloud.getPoint(i).location) < planes[p1].absDistance(pointCloud.getPoint(i).location)) {
-                        pointCloud.setPointPlane(i, p2);
-                        std::cout << "reassigned some pointy bois" << std::endl;
-                    }
-                    if (pointCloud.getPoint(i).planeIx == p2 && planes[p1].absDistance(pointCloud.getPoint(i).location) < planes[p2].absDistance(pointCloud.getPoint(i).location)) {
-                        pointCloud.setPointPlane(i, p1);
-                        std::cout << "reassigned some pointy bois" << std::endl;
-                    }
-                }
-            }
-        }
+    PointCloud pointCloud = PointCloud(inputFile, scale_parameter);
+    // Checking if number of points is too big for signed long long type
+    if (pointCloud.size > LLONG_MAX) {
+        std::cout << "Model is too big - reduce points to " << LLONG_MAX << " or less" << std::endl;
+        return 1;
     }
+    threshold = pointCloud.threshold;
+    std::cout << "Auto-generated threshold is " << threshold << std::endl;
+    if (planes.size() > colours.size()) std::cout << "Warning: more planes than colours" << std::endl;
 
-    // Recolour points according to their plane then save the results
-    std::cout << "Writing points to " << outputFile << std::endl;
-    signed long long val = 0;
-#pragma omp parallel for
-    for (val = 0; val < pointCloud.size; ++val) {
-        if (pointCloud.getPoint(val).planeIx >= 0) {
-            pointCloud.setPointColour(val, colours[pointCloud.getPoint(val).planeIx % colours.size()]);
-            // idea: color planes with limited colors based on avoiding intersecting plane's colors
-        }
+    if (structure == "uniform") {
+        UniformPC u = UniformPC(pointCloud, 2);
+        std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(u, gen, success, noise, threshold, maxTrials);
+        recolor(u, outputFile, colours);
     }
-    pointCloud.writeToPly(outputFile);
+    else {
+        std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+        recolor(pointCloud, outputFile, colours);
+    }
 }
+
+//    if (true) { //fix for structure
+//        for (int p1 = 0; p1 < planes.size(); p1++) {
+//            for (int p2 = 0; p2 < planes.size(); p2++) {
+//                if (p1 == p2) continue; 
+//                Eigen::ParametrizedLine<double, 3> *intersection = pointCloud->intersectPlanes(planes[p1], planes[p2]);
+//                if (intersection == NULL) continue;
+//                signed long long i = 0;
+//#pragma omp parallel for
+//                for (i = 0; i < pointCloud.size; ++i) {
+//                    if (intersection->distance(pointCloud->getPoint(i).location) > threshold) continue;
+//                    if (pointCloud->getPoint(i).planeIx == p1 && planes[p2].absDistance(pointCloud->getPoint(i).location) < planes[p1].absDistance(pointCloud.getPoint(i).location)) {
+//                        pointCloud->setPointPlane(i, p2);
+//                        std::cout << "reassigned some pointy bois" << std::endl;
+//                    }
+//                    if (pointCloud->getPoint(i).planeIx == p2 && planes[p1].absDistance(pointCloud.getPoint(i).location) < planes[p2].absDistance(pointCloud.getPoint(i).location)) {
+//                        pointCloud.setPointPlane(i, p1);
+//                        std::cout << "reassigned some pointy bois" << std::endl;
+//                    }
+//                }
+//            }
+//        }
+//    }

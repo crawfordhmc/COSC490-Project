@@ -6,9 +6,6 @@
 #include <tinyply.h>
 using namespace tinyply;
 
-//empty constructor
-PointCloud::PointCloud() {}
-
 
 PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 	std::cout << "........................................................................\n";
@@ -109,10 +106,9 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 	}
  }
 
-
-PointCloud::Point PointCloud::getPoint(int index) { return pc[index]; }
-void PointCloud::setPointPlane(int index, int planeID) { pc[index].planeIx = planeID; }
-void PointCloud::setPointColour(int index, Eigen::Vector3i colour) { pc[index].colour = colour; }
+PointCloud::Point PointCloud::getPoint(size_t index) { return pc[index]; }
+void PointCloud::setPointPlane(size_t index, int planeID) { pc[index].planeIx = planeID; }
+void PointCloud::setPointColour(size_t index, Eigen::Vector3i colour) { pc[index].colour = colour; }
 
 
 // Returns a vector of points within the threshold to the given hyperplane
@@ -134,25 +130,6 @@ std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPla
 		std::cout << threads << " threads are being used" << std::endl;
 	return thisPoints;
 }
-
-
-
-// thots: should this method return which bounding box side it intersected with?
-// not much use for standard intersections, however voxel intersections we already know how the ray came in...
-// maybe make the plane checking code a seperate function, and call it in a different way in uniform space subdivision
-// this means that the inputs may not be needed if this function was moved to vector PC and kept abstract here...
-
-//double[] pointcloud::intersectlines(double k, double i_min, double i_max, double j_min, double j_max, 
-//	double i1, double i2, double j1, double j2, double k1, double k2, double d1, double d2) {
-//
-//	double i = ((j1 / j2) * (k1 * k + d1) - k2 * k - d2) / (i2 - i1 * j1 / j2);
-//	if (i > i_min && i < i_max) {
-//		double j = (-i1 * i - k1 * k - d1) / j1;
-//		if (j > j_min && j < j_max)
-//			return[i, j];
-//	}
-//	return false;
-//}
 
 
 //Returns the line intersection of the given planes within the given bounding box, if any

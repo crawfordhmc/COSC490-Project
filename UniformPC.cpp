@@ -4,13 +4,11 @@
 #include <fstream>
 #include <sstream>
 
-const int CHONK = 2;
 
-
-UniformPC::UniformPC(const std::string& filepath, float scale_parameter) : PointCloud(filepath, scale_parameter) {
+UniformPC::UniformPC(PointCloud const&p, float voxel_scale) : PointCloud(p) {
 
     // assign the given volumes of voxels to the model dimensions
-    voxel_size = CHONK*threshold;
+    voxel_size = voxel_scale*threshold;
     x_voxels = ceil((XL - XS) / voxel_size);
     y_voxels = ceil((YL - YS) / voxel_size);
     z_voxels = ceil((ZL - ZS) / voxel_size);
@@ -85,7 +83,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     }
 
     do {
-        cleary(indexes, remainingPoints, Eigen::ParametrizedLine<double, 3>(p, norm), visited, thisPlane, plane);
+        indexes = cleary(indexes, remainingPoints, Eigen::ParametrizedLine<double, 3>(p, norm), visited, thisPlane, plane);
         p += step;
     } while (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL); //p stays within the other bounds
 
@@ -95,8 +93,8 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
 
 
 //Returns the points within the threshold of a ray in a 3D bounding box
-std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, std::vector<size_t> remainingPoints, Eigen::ParametrizedLine<double, 3> ray, 
-    std::vector<std::vector<std::vector<bool>>> visited, Eigen::Hyperplane<double, 3> thisPlane, int plane) {
+std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, std::vector<size_t> remainingPoints, Eigen::ParametrizedLine<double, 3> ray, 
+    std::vector<std::vector<std::vector<bool>>> &visited, Eigen::Hyperplane<double, 3> thisPlane, int plane) {
     
     Eigen::Vector3d p = ray.origin();
     //find current cell
@@ -133,7 +131,7 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> points, std::vector<si
 }
 
 
-void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> thisPoints, std::vector<size_t> remainingPoints,
+void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &thisPoints, std::vector<size_t> remainingPoints,
     Eigen::Hyperplane<double, 3> thisPlane, int plane) {
     
     //OpenMP requires signed integrals for its loop variables... interesting
