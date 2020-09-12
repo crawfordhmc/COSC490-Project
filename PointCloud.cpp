@@ -204,6 +204,8 @@ Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplan
 //args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
 Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2) {
 	return PointCloud::intersectPlanes(p1, p2, XS - threshold, XL + threshold, YS - threshold, YL + threshold, ZS - threshold, ZL + threshold);
+	//return PointCloud::intersectPlanes(p1, p2, XS, XL, YS, YL, ZS, ZL);
+
 }
 
 

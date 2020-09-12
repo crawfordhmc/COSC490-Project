@@ -6,10 +6,12 @@ And then each cell has its points iterated through serially
 But then checking which cells have been already added parallely is a pain...
 
 
-should I remake the pointer structure? I see now that the virtual keyword on PointCLoud.h is important
+
 
 
 TODO
+fix the fuckin adjacency line
+
 profile time taken for uniform SS
 play around with cell size
 

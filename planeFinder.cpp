@@ -69,9 +69,11 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
         // Remove point indexes of the best plane from all trials
         for (size_t j = 0; j < bestPoints.size(); ++j) {
             pointCloud.setPointPlane(bestPoints[j], plane);
+            //if bestpoints is ordered, this iterator can be saved between for loops
             std::vector<size_t>::iterator position = std::lower_bound(remainingPoints.begin(), remainingPoints.end(), bestPoints[j]);
             if (position != remainingPoints.end())
                 remainingPoints.erase(position);
+            // take iterator back by one to consider the removal?
         }
         plane++;
         planes.push_back(bestPlane);

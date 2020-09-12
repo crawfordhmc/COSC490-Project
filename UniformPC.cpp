@@ -45,57 +45,65 @@ std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
 
 // Returns a vector of points within the threshold to the given hyperplane
 std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> remainingPoints, unsigned int trial, int plane) {
+    //theta value for floating-point comparisons NEEDED?
+    double t = 1 + 0.01 * threshold;
+    std::vector<Eigen::ParametrizedLine<double, 3>> edges = {
+        Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 1, 0, 0 }),
+        Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 0, 1, 0 }),
+        Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 0, 0, 1 }),
+
+        Eigen::ParametrizedLine<double, 3>({ XL, YS, ZS }, { 0, 1, 0 }),
+        Eigen::ParametrizedLine<double, 3>({ XL, YS, ZS }, { 0, 0, 1 }),
+
+        Eigen::ParametrizedLine<double, 3>({ XS, YL, ZS }, { 1, 0, 0 }),
+        Eigen::ParametrizedLine<double, 3>({ XS, YL, ZS }, { 0, 0, 1 }),
+
+        Eigen::ParametrizedLine<double, 3>({ XS, YS, ZL }, { 1, 0, 0 }),
+        Eigen::ParametrizedLine<double, 3>({ XS, YS, ZL }, { 0, 1, 0 }),
+
+        Eigen::ParametrizedLine<double, 3>({ XL, YL, ZL}, { -1, 0, 0 }),
+        Eigen::ParametrizedLine<double, 3>({ XL, YL, ZL}, { 0, -1, 0 }),
+        Eigen::ParametrizedLine<double, 3>({ XL, YL, ZL}, { 0, 0, -1 })
+    };
     // indexes of points on the plane to be returned
     std::vector<size_t> indexes;
     // 3D truth array of visited voxels
     std::vector<std::vector<std::vector<bool>>> visited;
     visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
 
-    // direction of rays to be cast into the bounding box
-    Eigen::Vector3d norm = { 0, 0, 0 };
-
-    // starting from x axis
-    Eigen::ParametrizedLine<double, 3>* start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 1, 0, 0 }, { XS, 0, 0 }));
-    if (start_line != NULL) norm[0] = 1;
-    if (start_line == NULL) {
-        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 1, 0, 0 }, { XL, 0, 0 }));
-        if (start_line != NULL) norm[0] = -1;
-    }
-    // starting from y axis
-    if (start_line == NULL) {
-        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 0, 1, 0 }, { 0, YS, 0 }));
-        if (start_line != NULL) norm[1] = 1;
-    }
-    if (start_line == NULL) {
-        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 0, 1, 0 }, { 0, YL, 0 }));
-        if (start_line != NULL) norm[1] = -1;
-    }
-    //starting from z axis
-    if (start_line == NULL) {
-        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 0, 0, 1 }, { 0, 0, ZS }));
-        if (start_line != NULL) norm[2] = 1;
-    }
-    if (start_line == NULL) {
-        start_line = PointCloud::intersectPlanes(thisPlane, Eigen::Hyperplane<double, 3>({ 0, 0, 1 }, { 0, 0, ZL }));
-        if (start_line != NULL) norm[2] = -1;
+    //get first edge intersection
+    int edge = 0;
+    Eigen::Vector3d p1 = edges[edge].intersectionPoint(thisPlane);
+    while (p1[0] < XS * t || p1[0] > XL * t || p1[1] < YS * t || p1[1] > YL * t || p1[2] < ZS * t || p1[2] > ZL * t) p1 = edges[++edge].intersectionPoint(thisPlane);
+    //get second edge intersection
+    int i = edge + 1;
+    Eigen::Vector3d p2 = edges[i].intersectionPoint(thisPlane);
+    while (p2[0] < XS * t || p2[0] > XL * t || p2[1] < YS * t || p2[1] > YL * t || p2[2] < ZS * t || p2[2] > ZL * t) {  //end loop once a intersection within the bounding box is found
+        i += 1;
+        //make sure the lines are adjacent
+        if () continue; //FIX THIS LINE
+        p2 = edges[i].intersectionPoint(thisPlane);
     }
 
-    // point along the line to start with
-    Eigen::Vector3d p = start_line->origin();
-    Eigen::Vector3d step = start_line->direction(); //how to ensure this is pointing INTO the bounding box?
-    for (int i = 0; i < 3; i++) step[i] *= voxel_size;
-    // cast first ray one step in? CHECK THIS
-    p += step;
-    // make sure correct direction to move p along the line into the bounding box
-    if (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL) { // assuming p's location on the starting axis isn't out by prescision?
-        step *= -1;
-        p += 2 * step;
-    }
+    //line to cast rays from
+    Eigen::ParametrizedLine<double, 3> start_line = Eigen::ParametrizedLine<double, 3>::Through(p1, p2);
+    // direction of rays to be cast into the bounding box, following plane
+    Eigen::Vector3d norm = { 1, 1, 1 };
+    // if plane intersects on the far corner
+    if (edge > 8) norm = norm * -1;
+    norm = norm - edges[edge].direction();
+    if (edges[edge].direction() == edges[i].direction()) //if lines are parallel
+        norm = norm - (edges[i].origin() - edges[edge].origin()).normalized();
+    else norm = norm - edges[i].direction();
+    // if plane intersects on one of the far sides
+    if (edge > 2) norm = norm * -1;
 
+    Eigen::Vector3d step = start_line.direction() * voxel_size;
+    Eigen::Vector3d dir = thisPlane.projection(norm).normalized(); //look into fixing a direction for 2d clearys
     do {
-        indexes = cleary(indexes, remainingPoints, Eigen::ParametrizedLine<double, 3>(p, norm), visited, thisPlane, plane);
-        p += step;
-    } while (p[0] < XS || p[0] > XL || p[1] < YS || p[1] > YL || p[2] < ZS || p[2] > ZL); //p stays within the other bounds
+        cleary(indexes, remainingPoints, Eigen::ParametrizedLine<double, 3>(p1, dir), visited, thisPlane, plane);
+        p1 += step;
+    } while (start_line.projection(p1).norm() < start_line.projection(p2).norm()); //p stays within the other bounds
 
     return indexes;
 
@@ -117,12 +125,12 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, std::vector<s
     double dy = theta_y;
     double dz = theta_z;
 
-    do {
+    while (cell[0] >= 0 && cell[0] < x_voxels && cell[1] >= 0 && cell[1] < y_voxels && cell[2] >= 0 && cell[2] < z_voxels) {
         if (!visited[cell[0]][cell[1]][cell[2]] && !cells[cell[0]][cell[1]][cell[2]].empty()) {
             //push thresholded points from cell onto points vector
             addPoints(cells[cell[0]][cell[1]][cell[2]], points, remainingPoints, thisPlane, plane);
-            visited[cell[0]][cell[1]][cell[2]] = true;
         }
+        visited[cell[0]][cell[1]][cell[2]] = true;
         //work out next cell
         if (abs(dx) < abs(dy) && abs(dx) < abs(dz)) {
             dx += theta_x;
@@ -136,7 +144,7 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, std::vector<s
             dz += theta_z;
             (theta_z > 0) ? cell[2] += 1 : cell[2] -= 1;
         }
-    } while (cell[0] >= 0 && cell[0] <= x_voxels || cell[1] >= 0 && cell[1] <= y_voxels || cell[2] >= 0 && cell[2] <= z_voxels);
+    }
     return points;
 }
 
@@ -147,9 +155,9 @@ void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &this
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
-    for (i = 0; i < remainingPoints.size(); ++i) {
-        if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold)
+    for (i = 0; i < indexes.size(); ++i) {
+        if (thisPlane.absDistance(pc[indexes[i]].location) < threshold && std::binary_search(remainingPoints.begin(), remainingPoints.end(), indexes[i]))
 #pragma omp critical
-            thisPoints.push_back(remainingPoints[i]);
+            thisPoints.push_back(indexes[i]);
     }
 }
