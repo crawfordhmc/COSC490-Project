@@ -28,6 +28,10 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
 
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
+    //TEST
+    Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>({0, 0, 1}, pointCloud.getPoint(0).location);
+    std::vector<size_t> testy = pointCloud.planePoints(test, remainingPoints, 0, plane);
+
     do {
         // Initial number of trials, very high from lowball initial inlier ratio
         double inlierRatio = 0.01;
@@ -150,7 +154,7 @@ int main(int argc, char* argv[]) {
     if (planes.size() > colours.size()) std::cout << "Warning: more planes than colours" << std::endl;
 
     if (structure == "uniform") {
-        UniformPC u = UniformPC(pointCloud, 2);
+        UniformPC u = UniformPC(pointCloud, 10);
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(u, gen, success, noise, threshold, maxTrials);
         recolor(u, outputFile, colours);
     }

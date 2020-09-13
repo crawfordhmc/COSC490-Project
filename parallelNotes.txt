@@ -10,7 +10,8 @@ But then checking which cells have been already added parallely is a pain...
 
 
 TODO
-fix the fuckin adjacency line
+run specific plane through both standard and uniform to see where the missing points are
+
 
 profile time taken for uniform SS
 play around with cell size
