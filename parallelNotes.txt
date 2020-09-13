@@ -6,11 +6,13 @@ And then each cell has its points iterated through serially
 But then checking which cells have been already added parallely is a pain...
 
 
-
-
-
 TODO
-run specific plane through both standard and uniform to see where the missing points are
+Calculate by hand the cells adjacent to a plane
+Check cells traversed:
+	if cell list is the same something is going on with the addPoints
+	if not the same fix it - what is causing the edge cases?
+Try moving first ray point forward a little so it's not directly on the boundary (rework loop so that it does a floored number of steps?)
+Test where extreme points are being hashed to
 
 
 profile time taken for uniform SS
