@@ -25,8 +25,8 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     //TEST
-    //Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>({2, 2, 10}, pointCloud.getPoint(0).location);
-    //std::vector<size_t> testy = pointCloud.planePoints(test);
+    Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>({2, 2, 10}, pointCloud.getPoint(0).location);
+    std::vector<size_t> testy = pointCloud.planePoints(test);
 
     do {
         // Initial number of trials, very high from lowball initial inlier ratio
