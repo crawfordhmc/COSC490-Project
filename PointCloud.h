@@ -20,10 +20,9 @@ public:
 		int planeIx;
 	};
 
-	//number of points
 	size_t size = 0;
 	double threshold;
-
+	std::vector<size_t> remainingPoints;
 
 	PointCloud(const std::string& filepath, float scale_parameter);
 
@@ -32,7 +31,7 @@ public:
 
 	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2);
 
-	virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> remainingPoints, unsigned int trial, int plane);
+	virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane);
 
 	Point getPoint(size_t index);
 	void setPointPlane(size_t index, int planeID);

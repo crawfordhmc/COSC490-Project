@@ -73,9 +73,15 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 		defaultPoint.colour = Eigen::Vector3i::Zero();
 		defaultPoint.planeIx = -1;
 		pc.resize(verts.size(), defaultPoint);
+		remainingPoints.resize(pc.size(), 0);
 
-		pc[0].location = verts[0].cast<double>();
-		pc[0].colour = cols[0].cast<int>();
+		signed long long i;
+#pragma omp parallel for
+		for (i = 0; i < pc.size(); i++)
+			pc[i].location = verts[i].cast<double>();
+			pc[i].colour = cols[i].cast<int>();
+			remainingPoints[i] = i;
+
 		XS = pc[0].location[0];
 		XL = pc[0].location[0];
 		YS = pc[0].location[1];
@@ -84,8 +90,6 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 		ZL = pc[0].location[2];
 
 		for (size_t p = 1; p < pc.size(); ++p) {
-			pc[p].location = verts[p].cast<double>();
-			pc[p].colour = cols[p].cast<int>();
 			XS = std::min(XS, pc[p].location[0]);
 			XL = std::max(XL, pc[p].location[0]);
 			YS = std::min(YS, pc[p].location[1]);
@@ -113,7 +117,7 @@ void PointCloud::setPointColour(size_t index, Eigen::Vector3i colour) { pc[index
 
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
-std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> remainingPoints, unsigned int trial, int plane) {
+std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) {
 	std::vector<size_t> thisPoints;
 	int threads = 1;
 	//OpenMP requires signed integrals for its loop variables... interesting

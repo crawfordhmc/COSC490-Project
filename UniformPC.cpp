@@ -47,9 +47,9 @@ std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
 
 
 // Returns a vector of points within the threshold to the given hyperplane
-std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, std::vector<size_t> remainingPoints, unsigned int trial, int plane) {
+std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) {
     //theta value for floating-point comparisons NEEDED?
-    double t = 1;// +0.001 * threshold;
+    double t = 1 + 0.01 * threshold;
     std::vector<Eigen::ParametrizedLine<double, 3>> edges = {
         Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 1, 0, 0 }),
         Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 0, 1, 0 }),
@@ -73,6 +73,9 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     // 3D truth array of visited voxels
     std::vector<std::vector<std::vector<bool>>> visited;
     visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
+    // Normalized plane coefficients
+    Eigen::Vector3d coeffs = { thisPlane.coeffs()[0], thisPlane.coeffs()[1], thisPlane.coeffs()[2] };
+    coeffs.normalize();
 
     //get first edge intersection
     int edge = 0;
@@ -100,17 +103,40 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     else dir = dir - edges[i].direction();
     // if plane intersects on one of the far sides
     if (edge > 2) dir = dir * -1;
-    // set ray direction to be moving as opposed to fixed for 2D clearys as the slower-changing one of the start line
-    int moving_axis;
-    if (abs(dir[0]) == 1) moving_axis = (abs(start_line.direction()[1]) < abs(start_line.direction()[2])) ? 1 : 2;
-    else if (abs(dir[1]) == 1) moving_axis = (abs(start_line.direction()[0]) < abs(start_line.direction()[2])) ? 0 : 2;
-    else moving_axis = (abs(start_line.direction()[0]) < abs(start_line.direction()[1])) ? 0 : 1;
 
     Eigen::Vector3d step = start_line.direction() * voxel_size;
-    dir[moving_axis] -= thisPlane.normal()[moving_axis];
+
+    // set ray direction to be moving as opposed to fixed for 2D clearys as the slower-changing one of the start line
+    if ((fmod(thisPlane.coeffs()[0], dir[0]) > t && fmod(thisPlane.coeffs()[1], dir[1]) > t && fmod(thisPlane.coeffs()[2], dir[2]) > t)) {
+        int moving_axis;
+        if (abs(dir[0]) == 1) moving_axis = (abs(start_line.direction()[1]) < abs(start_line.direction()[2])) ? 1 : 2;
+        else if (abs(dir[1]) == 1) moving_axis = (abs(start_line.direction()[0]) < abs(start_line.direction()[2])) ? 0 : 2;
+        else moving_axis = (abs(start_line.direction()[0]) < abs(start_line.direction()[1])) ? 0 : 1;
+        dir[moving_axis] += coeffs[moving_axis]; // add normalized coefficient in the unfixed direction to fit ray to plane
+    }
+    else { //if plane is completely flat, just do all the cells in that row and call it a day
+        std::vector<size_t> cell = hashCell(p1);
+        if (dir[0] == 1) { //variance in y and z planes
+            flatPlane(cell, indexes, thisPlane, plane)
+            bool up = cell[0] < x_voxels - 1;
+            bool down = cell[0] > 0;
+            for (size_t i = 0; i < y_voxels; i++) {
+                for (size_t j = 0; j < z_voxels; j++) {
+                    if (up) addPoints(cells[cell[0]+1][i][j], indexes, thisPlane, plane);
+                    addPoints(cells[cell[0]][i][j], indexes, thisPlane, plane);
+                    if (down) addPoints(cells[cell[0] - 1][i][j], indexes, thisPlane, plane);
+                }
+            }
+        }
+        else if (dir[1] == 1) { //variance in x and z planes
+        }
+        else {// variance in  x and y planes
+        }
+    }
+
     //for (int i = 0; i < 3; i++) if (abs(dir[i]) != 1) dir[i] -= thisPlane.normal()[i];
     do { //p stays within the other bounds
-        cleary(indexes, remainingPoints, Eigen::ParametrizedLine<double, 3>(p1, dir.normalized()), visited, thisPlane, plane);
+        cleary(indexes, Eigen::ParametrizedLine<double, 3>(p1, dir.normalized()), visited, thisPlane, plane);
         p1 += step;
     } while (start_line.projection(p1).norm() < start_line.projection(p2).norm());
     return indexes;
@@ -119,32 +145,44 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
 
 
 //Returns the points within the threshold of a 2D ray in a 3D bounding box
-std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, std::vector<size_t> remainingPoints, Eigen::ParametrizedLine<double, 3> ray, 
+std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, Eigen::ParametrizedLine<double, 3> ray, 
     std::vector<std::vector<std::vector<bool>>> &visited, Eigen::Hyperplane<double, 3> thisPlane, int plane) {
-    
+
     std::vector<int> limits = { x_voxels, y_voxels, z_voxels };
     Eigen::Vector3d p = ray.origin();
     int x1 = ray.direction()[0] == 0 ? 1 : 0;
     int x2 = ray.direction()[2] == 0 ? 1 : 2;
-    //int x3 = (x1 == 0) ? (x2 == 1) ? 2 : 1 : 0;
-    //double t = 1;// +0.001 * threshold;
-    //if (p[0] < XS * t || p[0] > XL * t || p[1] < YS * t || p[1] > YL * t || p[2] < ZS * t || p[2] > ZL * t)
-    //    t = 1;
 
     //find current cell
     std::vector<size_t> cell = hashCell(p);
+
+    //if plane is completely flat, just do all the cells in that row and call it a day
+    if (x1 == x2) { //how to prevent overlaps?
+        x2 = (x2 + 1) % 3;
+        for (size_t i = 0; i < limits[x2]; i++) {
+            cell[x2] = i;
+            addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane, plane);
+            cell[x1] += 1;
+            if (cell[x1] < limits[x1]) addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane, plane);
+            cell[x1] -= 2;
+            if (cell[x1] < limits[x1]) addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane, plane);
+            cell[x1] += 1;
+        }
+        return points;
+    }
+
     //visit x2 adjacent cells just for the first step to catch scragglers
     std::vector<size_t> cell2 = cell;
     cell2[x2] += 1;
     if (cell2[x2] < limits[x2]) {
         if (!cells[cell2[0]][cell2[1]][cell2[2]].empty())
-            addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, remainingPoints, thisPlane, plane);
+            addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, thisPlane, plane);
         visited[cell2[0]][cell2[1]][cell2[2]] = true;
     }
     if (cell2[x2] > 1) {
         cell2[x2] -= 2;
         if (!cells[cell2[0]][cell2[1]][cell2[2]].empty())
-            addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, remainingPoints, thisPlane, plane);
+            addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, thisPlane, plane);
         visited[cell2[0]][cell2[1]][cell2[2]] = true;
     }
 
@@ -160,7 +198,7 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, std::vector<s
     while (cell[x1] < limits[x1] && cell[x2] < limits[x2]) {
         if (!visited[cell[0]][cell[1]][cell[2]] && !cells[cell[0]][cell[1]][cell[2]].empty()) {
             //push thresholded points from cell onto points vector
-            addPoints(cells[cell[0]][cell[1]][cell[2]], points, remainingPoints, thisPlane, plane);
+            addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane, plane);
         }
         visited[cell[0]][cell[1]][cell[2]] = true;
 
@@ -169,13 +207,13 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, std::vector<s
         cell2[x1] += 1;
         if (cell2[x1] < limits[x1]) {
             if (!visited[cell2[0]][cell2[1]][cell2[2]] && !cells[cell2[0]][cell2[1]][cell2[2]].empty())
-                addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, remainingPoints, thisPlane, plane);
+                addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, thisPlane, plane);
             visited[cell2[0]][cell2[1]][cell2[2]] = true;
         }
         if (cell2[x1] > 1) {
             cell2[x1] -= 2;
             if (!visited[cell2[0]][cell2[1]][cell2[2]] && !cells[cell2[0]][cell2[1]][cell2[2]].empty())
-                addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, remainingPoints, thisPlane, plane);
+                addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, thisPlane, plane);
             visited[cell2[0]][cell2[1]][cell2[2]] = true;
         }
 
@@ -201,13 +239,13 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, std::vector<s
     cell2[x2] += 1;
     if (cell2[x2] < limits[x2]) {
         if (!visited[cell2[0]][cell2[1]][cell2[2]] && !cells[cell2[0]][cell2[1]][cell2[2]].empty())
-            addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, remainingPoints, thisPlane, plane);
+            addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, thisPlane, plane);
         visited[cell2[0]][cell2[1]][cell2[2]] = true;
     }
     if (cell2[x2] > 1) {
         cell2[x2] -= 2;
         if (!visited[cell2[0]][cell2[1]][cell2[2]] && !cells[cell2[0]][cell2[1]][cell2[2]].empty())
-            addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, remainingPoints, thisPlane, plane);
+            addPoints(cells[cell2[0]][cell2[1]][cell2[2]], points, thisPlane, plane);
         visited[cell2[0]][cell2[1]][cell2[2]] = true;
     }
 
@@ -215,8 +253,7 @@ std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, std::vector<s
 }
 
 
-void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &thisPoints, std::vector<size_t> remainingPoints,
-    Eigen::Hyperplane<double, 3> thisPlane, int plane) {
+void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &thisPoints, Eigen::Hyperplane<double, 3> thisPlane, int plane) {
     
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;

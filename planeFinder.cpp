@@ -22,22 +22,20 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
 std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double noise, double threshold, unsigned int maxTrials) {
 
     unsigned int plane = 0;
-    std::vector<size_t> remainingPoints(pointCloud.size);
-    for (size_t i = 0; i < pointCloud.size; i++)
-        remainingPoints[i] = i;
+
 
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     //TEST
     Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>({0, 0, 1}, pointCloud.getPoint(0).location);
-    std::vector<size_t> testy = pointCloud.planePoints(test, remainingPoints, 0, plane);
+    std::vector<size_t> testy = pointCloud.planePoints(test, 0, plane);
 
     do {
         // Initial number of trials, very high from lowball initial inlier ratio
         double inlierRatio = 0.01;
         unsigned int numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
         // Create random distribution for the point cloud, with other planes removed
-        std::uniform_int_distribution<size_t> distr(0, remainingPoints.size() - 1);
+        std::uniform_int_distribution<size_t> distr(0, pointCloud.remainingPoints.size() - 1);
         Eigen::Hyperplane<double, 3> bestPlane;
         std::vector<size_t> bestPoints;
 
@@ -48,20 +46,20 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
             std::vector<size_t> foundPoints;
             while (foundPoints.size() < 3) {
                 size_t index = distr(gen);
-                foundPoints.push_back(remainingPoints[index]);
+                foundPoints.push_back(pointCloud.remainingPoints[index]);
             }
             Eigen::Hyperplane<double, 3> thisPlane = Eigen::Hyperplane<double, 3>::Through(
                 pointCloud.getPoint(foundPoints[0]).location,
                 pointCloud.getPoint(foundPoints[1]).location,
                 pointCloud.getPoint(foundPoints[2]).location);
             // Add points closer than threshold to this plane
-            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane, remainingPoints, trial, plane);
+            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane, trial, plane);
 
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
                 bestPlane = thisPlane;
                 bestPoints = thisPoints;
-                inlierRatio = (float)bestPoints.size() / (remainingPoints.size());
+                inlierRatio = (float)bestPoints.size() / (pointCloud.remainingPoints.size());
                 numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
 
             }
@@ -74,15 +72,15 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
         for (size_t j = 0; j < bestPoints.size(); ++j) {
             pointCloud.setPointPlane(bestPoints[j], plane);
             //if bestpoints is ordered, this iterator can be saved between for loops
-            std::vector<size_t>::iterator position = std::lower_bound(remainingPoints.begin(), remainingPoints.end(), bestPoints[j]);
-            if (position != remainingPoints.end())
-                remainingPoints.erase(position);
+            std::vector<size_t>::iterator position = std::lower_bound(pointCloud.remainingPoints.begin(), pointCloud.remainingPoints.end(), bestPoints[j]);
+            if (position != pointCloud.remainingPoints.end())
+                pointCloud.remainingPoints.erase(position);
             // take iterator back by one to consider the removal?
         }
         plane++;
         planes.push_back(bestPlane);
 
-    } while ((float)remainingPoints.size()/pointCloud.size > noise);
+    } while ((float)pointCloud.remainingPoints.size()/pointCloud.size > noise);
 
     return planes;
 
