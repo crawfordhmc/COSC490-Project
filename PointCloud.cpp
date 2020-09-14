@@ -82,7 +82,7 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 			pc[i].location = verts[i].cast<double>();
 			pc[i].colour = cols[i].cast<int>();
 			remainingPoints[i] = i;
-			if (omp_get_thread_num() == omp_get_max_threads()) threads = omp_get_max_threads();
+			if (omp_get_thread_num() == 0) threads = omp_get_num_threads();
 		}
 		std::cout << threads << " threads being used" << std::endl;
 
