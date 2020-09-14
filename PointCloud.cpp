@@ -75,12 +75,16 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 		pc.resize(verts.size(), defaultPoint);
 		remainingPoints.resize(pc.size(), 0);
 
-		signed long long i;
+		signed long long i = 0;
+		int threads = 1;
 #pragma omp parallel for
-		for (i = 0; i < pc.size(); i++)
+		for (i = 0; i < pc.size(); i++) {
 			pc[i].location = verts[i].cast<double>();
 			pc[i].colour = cols[i].cast<int>();
 			remainingPoints[i] = i;
+			if (omp_get_thread_num() == omp_get_max_threads()) threads = omp_get_max_threads();
+		}
+		std::cout << threads << " threads being used" << std::endl;
 
 		XS = pc[0].location[0];
 		XL = pc[0].location[0];
@@ -103,6 +107,26 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 		double scale = (XL - XS + YL - YS + ZL - ZS) / 3;
 		// apply a small % to the value to get a sensible threshold
 		threshold = scale_parameter * scale;
+
+		//vector of edges... just in case
+		edges = {
+			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 1, 0, 0 }),
+			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 0, 1, 0 }),
+			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 0, 0, 1 }),
+
+			Eigen::ParametrizedLine<double, 3>({ XL, YS, ZS }, { 0, 1, 0 }),
+			Eigen::ParametrizedLine<double, 3>({ XL, YS, ZS }, { 0, 0, 1 }),
+
+			Eigen::ParametrizedLine<double, 3>({ XS, YL, ZS }, { 1, 0, 0 }),
+			Eigen::ParametrizedLine<double, 3>({ XS, YL, ZS }, { 0, 0, 1 }),
+
+			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZL }, { 1, 0, 0 }),
+			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZL }, { 0, 1, 0 }),
+
+			Eigen::ParametrizedLine<double, 3>({ XS, YL, ZL}, { 1, 0, 0 }),
+			Eigen::ParametrizedLine<double, 3>({ XL, YS, ZL}, { 0, 1, 0 }),
+			Eigen::ParametrizedLine<double, 3>({ XL, YL, ZS}, { 0, 0, 1 })
+		};
 	}
 	catch (const std::exception& e)
 	{
@@ -117,9 +141,8 @@ void PointCloud::setPointColour(size_t index, Eigen::Vector3i colour) { pc[index
 
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
-std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane) {
+std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPlane) {
 	std::vector<size_t> thisPoints;
-	int threads = 1;
 	//OpenMP requires signed integrals for its loop variables... interesting
 	signed long long i = 0;
 #pragma omp parallel for shared(thisPoints) private (i)
@@ -127,11 +150,7 @@ std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPla
 		if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold)
 #pragma omp critical
 			thisPoints.push_back(remainingPoints[i]);
-		if (omp_get_thread_num() == 0 && trial == 0 && plane == 0)
-			threads = omp_get_max_threads();
 	}
-	if (trial == 0 && plane == 0)
-		std::cout << threads << " threads are being used" << std::endl;
 	return thisPoints;
 }
 

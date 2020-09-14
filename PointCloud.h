@@ -31,7 +31,7 @@ public:
 
 	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2);
 
-	virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane);
+	virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane);
 
 	Point getPoint(size_t index);
 	void setPointPlane(size_t index, int planeID);
@@ -54,6 +54,8 @@ protected:
 	double YL;
 	double ZS;
 	double ZL;
+
+	std::vector<Eigen::ParametrizedLine<double, 3>> edges;
 };
 
 #endif

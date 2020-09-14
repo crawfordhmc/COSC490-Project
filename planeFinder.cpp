@@ -22,13 +22,11 @@ void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
 std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt19937 gen, double successProb, double noise, double threshold, unsigned int maxTrials) {
 
     unsigned int plane = 0;
-
-
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     //TEST
-    Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>({0, 0, 1}, pointCloud.getPoint(0).location);
-    std::vector<size_t> testy = pointCloud.planePoints(test, 0, plane);
+    //Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>({2, 2, 10}, pointCloud.getPoint(0).location);
+    //std::vector<size_t> testy = pointCloud.planePoints(test);
 
     do {
         // Initial number of trials, very high from lowball initial inlier ratio
@@ -53,7 +51,7 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
                 pointCloud.getPoint(foundPoints[1]).location,
                 pointCloud.getPoint(foundPoints[2]).location);
             // Add points closer than threshold to this plane
-            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane, trial, plane);
+            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane);
 
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {

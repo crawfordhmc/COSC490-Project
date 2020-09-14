@@ -13,7 +13,7 @@ public:
 
     UniformPC(PointCloud const&p, float voxel_scale);
 
-    std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane, unsigned int trial, int plane);
+    std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane);
 
 protected:
 
@@ -23,11 +23,11 @@ protected:
 
     std::vector<size_t> hashCell(Eigen::Vector3d p);
 
-    std::vector<size_t> UniformPC::cleary(std::vector<size_t> &points, Eigen::ParametrizedLine<double, 3> ray,
-        std::vector<std::vector<std::vector<bool>>>& visited, Eigen::Hyperplane<double, 3> thisPlane, int plane);
+    void UniformPC::cleary(std::vector<size_t> &points, Eigen::ParametrizedLine<double, 3> ray,
+        std::vector<std::vector<std::vector<bool>>>& visited, Eigen::Hyperplane<double, 3> thisPlane);
 
     void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &thisPoints,
-        Eigen::Hyperplane<double, 3> thisPlane, int plane);
+        Eigen::Hyperplane<double, 3> thisPlane);
 
 };
 #endif
