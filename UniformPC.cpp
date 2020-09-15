@@ -43,16 +43,13 @@ std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
     size_t x = (p[0] - XS < voxel_size) ? 0 : floor((p[0] - XS) / voxel_size);
     size_t y = (p[1] - YS < voxel_size) ? 0 : floor((p[1] - YS) / voxel_size);
     size_t z = (p[2] - ZS < voxel_size) ? 0 : floor((p[2] - ZS) / voxel_size);
-    if (x > x_voxels)
+    //account for exact divisions
+    if (x == x_voxels)
         x -= 1;
-    if (y > y_voxels)
+    if (y == y_voxels)
         y -= 1;
-    if (z > z_voxels)
-        z -= 1;
-    //checking the assignment is correct
-    if (p[0] > (x + 1) * voxel_size + XS) std::cout << p[0] << x << voxel_size << XS << std::endl;
-    if (p[1] > (y + 1) * voxel_size + YS) std::cout << p[1] << y << voxel_size << YS << std::endl;
-    if (p[2] > (z + 1) * voxel_size + ZS) std::cout << p[2] << z << voxel_size << ZS << std::endl;
+    if (z == z_voxels)
+        z == 1;
     return {x, y, z};
 }
 
@@ -97,22 +94,18 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     // 3D truth array of visited voxels
     std::vector<std::vector<std::vector<bool>>> visited;
     visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
-    // starting cell
-    std::vector<size_t> cell = hashCell(p1);
+    //move point inwards a little to avoid prescision error in the out-of-bounds checking
+    //p1 = p1 + threshold * start_line.direction();
+    //p1 = p1 + threshold * raydir;
 
-    while (cell[0] < x_voxels && cell[1] < y_voxels && cell[2] < z_voxels) {
-        cleary(indexes, cell, raydir, visited, thisPlane);
+    while (p1[0] >= XS && p1[0] <= XL && p1[1] >= YS && p1[1] <= YL && p1[2] >= ZS && p1[2] <= ZL) {
+        //testing
+        //std::vector<size_t> c = hashCell(p1);
+        cleary(indexes, p1, raydir, visited, thisPlane);
         p1 += step;
-        cell = hashCell(p1);
     } 
-    
-    //TESTS
-    //for (size_t a = 0; a < x_voxels; a++)
-    //    for (size_t b = 0; b < y_voxels; b++)
-    //        for (size_t c = 0; c < z_voxels; c++)
-    //            if (visited[a][b][c]) std::cout << a << b << c << std::endl;
 
-//    std::cout << "AAAAAAAAAAAA" << std::endl;
+    // testing
     signed long long i = 0;
 #pragma omp parallel for
     for (i = 0; i < pc.size(); ++i) {
@@ -130,144 +123,146 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
 
 
 //Adds points in place within the threshold of a 2D ray in a 3D bounding box
-void UniformPC::cleary(std::vector<size_t> &points, std::vector<size_t> cell, Eigen::Vector3d dir, 
+void UniformPC::cleary(std::vector<size_t> &points, Eigen::Vector3d p, Eigen::Vector3d dir, 
     std::vector<std::vector<std::vector<bool>>> &visited, Eigen::Hyperplane<double, 3> thisPlane) {
 
+    std::vector<size_t> cell = hashCell(p);
     double theta_y = voxel_size / dir[1];
     double theta_z = voxel_size / dir[2];
-    double dy = theta_y;
-    double dz = theta_z;
+    // set distance already travelled to how far along p is in the starting cell
+    double dy = p[1] - (cell[1]*y_voxels + YS);
+    double dz = p[2] - (cell[2]*z_voxels + ZS); // p distance minus smaller wall of cell
     bool x_up = cell[0] < x_voxels - 1;
     bool x_down = cell[0] > 0;
     size_t y = 0;
     size_t z = 0;
 
+    //check the first cell
+    if (!cells[cell[0]][cell[1]][cell[2]].empty()) //push thresholded points from cell onto points vector
+            addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane);
+    visited[cell[0]][cell[1]][cell[2]] = true;
+    //visit cells to the left and right
+    if (x_down) { //x negative
+        if (!visited[cell[0] - 1][cell[1]][cell[2]]) {
+            if (!cells[cell[0] - 1][cell[1]][cell[2]].empty())
+                addPoints(cells[cell[0] - 1][cell[1]][cell[2]], points, thisPlane);
+            visited[cell[0] - 1][cell[1]][cell[2]] = true;
+        }
+    } 
+    if (x_up) { // x positive
+        if (!visited[cell[0] + 1][cell[1]][cell[2]]) {
+            if (!cells[cell[0] + 1][cell[1]][cell[2]].empty())
+                addPoints(cells[cell[0] + 1][cell[1]][cell[2]], points, thisPlane);
+            visited[cell[0] + 1][cell[1]][cell[2]] = true;
+        }
+    }
+
     // the >= 0 check isn't needed because a size_t will simply overflow to greater than the limit when negative anyway!
     while (cell[1] < y_voxels && cell[2] < z_voxels) {
-        //visit cell
-        if (!visited[cell[0]][cell[1]][cell[2]]) {
-            if (!cells[cell[0]][cell[1]][cell[2]].empty()) //push thresholded points from cell onto points vector
-                addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane);
-            visited[cell[0]][cell[1]][cell[2]] = true;
-            //visit adjacent cells
-            //x negative
-            if (x_down) {
-                if (!visited[cell[0] - 1][cell[1]][cell[2]]) {
-                    if (!cells[cell[0] - 1][cell[1]][cell[2]].empty())
-                        addPoints(cells[cell[0] - 1][cell[1]][cell[2]], points, thisPlane);
-                    visited[cell[0] - 1][cell[1]][cell[2]] = true;
+        //note that due to the adjacent cell checking getting ahead of itself, actually checking the current cell is not needed.
+
+        //z negative
+        if (cell[2] > 0) {
+            z = cell[2] - 1;
+            if (!visited[cell[0]][cell[1]][z]) {
+                if (!cells[cell[0]][cell[1]][z].empty())
+                    addPoints(cells[cell[0]][cell[1]][z], points, thisPlane);
+                visited[cell[0]][cell[1]][z] = true;
+                //-x-z
+                if (x_down) {
+                    if (!visited[cell[0] - 1][cell[1]][z]) {
+                        if (!cells[cell[0] - 1][cell[1]][z].empty())
+                            addPoints(cells[cell[0] - 1][cell[1]][z], points, thisPlane);
+                        visited[cell[0] - 1][cell[1]][z] = true;
+                    }
+                } //+x-z
+                if (x_up) {
+                    if (!visited[cell[0] + 1][cell[1]][z]) {
+                        if (!cells[cell[0] + 1][cell[1]][z].empty())
+                            addPoints(cells[cell[0] + 1][cell[1]][z], points, thisPlane);
+                        visited[cell[0] + 1][cell[1]][z] = true;
+                    }
                 }
-            } // x positive
-            if (x_up) {
-                if (!visited[cell[0] + 1][cell[1]][cell[2]]) {
-                    if (!cells[cell[0] + 1][cell[1]][cell[2]].empty())
-                        addPoints(cells[cell[0] + 1][cell[1]][cell[2]], points, thisPlane);
-                    visited[cell[0] + 1][cell[1]][cell[2]] = true;
+            }
+        } //z positive
+        if (cell[2] < z_voxels - 1) {
+            z = cell[2] + 1;
+            if (!visited[cell[0]][cell[1]][z]) {
+                if (!cells[cell[0]][cell[1]][z].empty())
+                    addPoints(cells[cell[0]][cell[1]][z], points, thisPlane);
+                visited[cell[0]][cell[1]][z] = true;
+                //-x+z
+                if (x_down) {
+                    if (!visited[cell[0] - 1][cell[1]][z]) {
+                        if (!cells[cell[0] - 1][cell[1]][z].empty())
+                            addPoints(cells[cell[0] - 1][cell[1]][z], points, thisPlane);
+                        visited[cell[0] - 1][cell[1]][z] = true;
+                    }
+                } //+x+z
+                if (x_up) {
+                    if (!visited[cell[0] + 1][cell[1]][z]) {
+                        if (!cells[cell[0] + 1][cell[1]][z].empty())
+                            addPoints(cells[cell[0] + 1][cell[1]][z], points, thisPlane);
+                        visited[cell[0] + 1][cell[1]][z] = true;
+                    }
+                }
+            }
+        }
+        //y negative
+        if (cell[1] > 0) {
+            y = cell[1] - 1;
+            if (!visited[cell[0]][y][cell[2]]) {
+                if (!cells[cell[0]][y][cell[2]].empty())
+                    addPoints(cells[cell[0]][y][cell[2]], points, thisPlane);
+                visited[cell[0]][y][cell[2]] = true;
+                //-x-y
+                if (x_down) {
+                    if (!visited[cell[0] - 1][y][cell[2]]) {
+                        if (!cells[cell[0] - 1][y][cell[2]].empty())
+                            addPoints(cells[cell[0] - 1][y][cell[2]], points, thisPlane);
+                        visited[cell[0] - 1][y][cell[2]] = true;
+                    }
+                } //+x-y
+                if (x_up) {
+                    if (!visited[cell[0] + 1][y][cell[2]]) {
+                        if (!cells[cell[0] + 1][y][cell[2]].empty())
+                            addPoints(cells[cell[0] + 1][y][cell[2]], points, thisPlane);
+                        visited[cell[0] + 1][y][cell[2]] = true;
+                    }
+                }
+            }
+        } //y positive
+        if (cell[1] < y_voxels - 1) {
+            y = cell[1] + 1;
+            if (!visited[cell[0]][y][cell[2]]) {
+                if (!cells[cell[0]][y][cell[2]].empty())
+                    addPoints(cells[cell[0]][y][cell[2]], points, thisPlane);
+                visited[cell[0]][y][cell[2]] = true;
+                //-x+y
+                if (x_down) {
+                    if (!visited[cell[0] - 1][y][cell[2]]) {
+                        if (!cells[cell[0] - 1][y][cell[2]].empty())
+                            addPoints(cells[cell[0] - 1][y][cell[2]], points, thisPlane);
+                        visited[cell[0] - 1][y][cell[2]] = true;
+                    }
+                } //+x+y
+                if (x_up) {
+                    if (!visited[cell[0] + 1][y][cell[2]]) {
+                        if (!cells[cell[0] + 1][y][cell[2]].empty())
+                            addPoints(cells[cell[0] + 1][y][cell[2]], points, thisPlane);
+                        visited[cell[0] + 1][y][cell[2]] = true;
+                    }
                 }
             }
         }
 
         //work out next cell
         if (abs(dy) < abs(dz)) {
-            //z negative
-            if (cell[2] > 0) {
-                z = cell[2] - 1;
-                if (!visited[cell[0]][cell[1]][z]) {
-                    if (!cells[cell[0]][cell[1]][z].empty())
-                        addPoints(cells[cell[0]][cell[1]][z], points, thisPlane);
-                    visited[cell[0]][cell[1]][z] = true;
-                    //-x-z
-                    if (x_down) {
-                        if (!visited[cell[0] - 1][cell[1]][z]) {
-                            if (!cells[cell[0] - 1][cell[1]][z].empty())
-                                addPoints(cells[cell[0] - 1][cell[1]][z], points, thisPlane);
-                            visited[cell[0] - 1][cell[1]][z] = true;
-                        }
-                    } //+x-z
-                    if (x_up) {
-                        if (!visited[cell[0] + 1][cell[1]][z]) {
-                            if (!cells[cell[0] + 1][cell[1]][z].empty())
-                                addPoints(cells[cell[0] + 1][cell[1]][z], points, thisPlane);
-                            visited[cell[0] + 1][cell[1]][z] = true;
-                        }
-                    }
-                }
-            } //z positive
-            if (cell[2] < z_voxels - 1) {
-                z = cell[2] + 1;
-                if (!visited[cell[0]][cell[1]][z]) {
-                    if (!cells[cell[0]][cell[1]][z].empty())
-                        addPoints(cells[cell[0]][cell[1]][z], points, thisPlane);
-                    visited[cell[0]][cell[1]][z] = true;
-                    //-x+z
-                    if (x_down) {
-                        if (!visited[cell[0] - 1][cell[1]][z]) {
-                            if (!cells[cell[0] - 1][cell[1]][z].empty())
-                                addPoints(cells[cell[0] - 1][cell[1]][z], points, thisPlane);
-                            visited[cell[0] - 1][cell[1]][z] = true;
-                        }
-                    } //+x+z
-                    if (x_up) {
-                        if (!visited[cell[0] + 1][cell[1]][z]) {
-                            if (!cells[cell[0] + 1][cell[1]][z].empty())
-                                addPoints(cells[cell[0] + 1][cell[1]][z], points, thisPlane);
-                            visited[cell[0] + 1][cell[1]][z] = true;
-                        }
-                    }
-                }
-            } // going to the y adjacent cell
-            dy += theta_y;
+            dy += theta_y;  // going to the y adjacent cell
             (theta_y > 0) ? cell[1] += 1 : cell[1] -= 1;
         }
         else {
-            //y negative
-            if (cell[1] > 0) {
-                y = cell[1] - 1;
-                if (!visited[cell[0]][y][cell[2]]) {
-                    if (!cells[cell[0]][y][cell[2]].empty())
-                        addPoints(cells[cell[0]][y][cell[2]], points, thisPlane);
-                    visited[cell[0]][y][cell[2]] = true;
-                    //-x-y
-                    if (x_down) {
-                        if (!visited[cell[0] - 1][y][cell[2]]) {
-                            if (!cells[cell[0] - 1][y][cell[2]].empty())
-                                addPoints(cells[cell[0] - 1][y][cell[2]], points, thisPlane);
-                            visited[cell[0] - 1][y][cell[2]] = true;
-                        }
-                    } //+x-y
-                    if (x_up) {
-                        if (!visited[cell[0] + 1][y][cell[2]]) {
-                            if (!cells[cell[0] + 1][y][cell[2]].empty())
-                                addPoints(cells[cell[0] + 1][y][cell[2]], points, thisPlane);
-                            visited[cell[0] + 1][y][cell[2]] = true;
-                        }
-                    }
-                }
-            } //y positive
-            if (cell[1] < y_voxels - 1) {
-                y = cell[1] + 1;
-                if (!visited[cell[0]][y][cell[2]]) {
-                    if (!cells[cell[0]][y][cell[2]].empty())
-                        addPoints(cells[cell[0]][y][cell[2]], points, thisPlane);
-                    visited[cell[0]][y][cell[2]] = true;
-                    //-x+y
-                    if (x_down) {
-                        if (!visited[cell[0] - 1][y][cell[2]]) {
-                            if (!cells[cell[0] - 1][y][cell[2]].empty())
-                                addPoints(cells[cell[0] - 1][y][cell[2]], points, thisPlane);
-                            visited[cell[0] - 1][y][cell[2]] = true;
-                        }
-                    } //+x+y
-                    if (x_up) {
-                        if (!visited[cell[0] + 1][y][cell[2]]) {
-                            if (!cells[cell[0] + 1][y][cell[2]].empty())
-                                addPoints(cells[cell[0] + 1][y][cell[2]], points, thisPlane);
-                            visited[cell[0] + 1][y][cell[2]] = true;
-                        }
-                    }
-                }
-            } // going to the z adjacent cell
-            dz += theta_z;
+            dz += theta_z;  // going to the z adjacent cell
             (theta_z > 0) ? cell[2] += 1 : cell[2] -= 1;
         }
     }
