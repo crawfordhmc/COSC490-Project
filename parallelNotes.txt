@@ -7,16 +7,12 @@ But then checking which cells have been already added parallely is a pain...
 
 
 TODO
-Ask steven about issues with diagonal planes
-Profile on larger models
+see if ray casting is the reason for missing voxels?
 
 
 profile time taken for uniform SS
 play around with cell size
 
-simplification ideas:
-send a point defining the plane to the intersector
-use the coefficients to estimate which axis a plane will exit the voxel on
 
 
 

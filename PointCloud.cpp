@@ -107,26 +107,6 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 		double scale = (XL - XS + YL - YS + ZL - ZS) / 3;
 		// apply a small % to the value to get a sensible threshold
 		threshold = scale_parameter * scale;
-
-		//vector of edges... just in case
-		edges = {
-			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 1, 0, 0 }),
-			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 0, 1, 0 }),
-			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZS }, { 0, 0, 1 }),
-
-			Eigen::ParametrizedLine<double, 3>({ XL, YS, ZS }, { 0, 1, 0 }),
-			Eigen::ParametrizedLine<double, 3>({ XL, YS, ZS }, { 0, 0, 1 }),
-
-			Eigen::ParametrizedLine<double, 3>({ XS, YL, ZS }, { 1, 0, 0 }),
-			Eigen::ParametrizedLine<double, 3>({ XS, YL, ZS }, { 0, 0, 1 }),
-
-			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZL }, { 1, 0, 0 }),
-			Eigen::ParametrizedLine<double, 3>({ XS, YS, ZL }, { 0, 1, 0 }),
-
-			Eigen::ParametrizedLine<double, 3>({ XS, YL, ZL}, { 1, 0, 0 }),
-			Eigen::ParametrizedLine<double, 3>({ XL, YS, ZL}, { 0, 1, 0 }),
-			Eigen::ParametrizedLine<double, 3>({ XL, YL, ZS}, { 0, 0, 1 })
-		};
 	}
 	catch (const std::exception& e)
 	{

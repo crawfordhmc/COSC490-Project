@@ -23,8 +23,11 @@ protected:
 
     std::vector<size_t> hashCell(Eigen::Vector3d p);
 
-    void UniformPC::cleary(std::vector<size_t>& points, Eigen::Vector3d p, Eigen::Vector3d dir,
-        std::vector<std::vector<std::vector<bool>>>& visited, Eigen::Hyperplane<double, 3> thisPlane);
+    void UniformPC::cleary(std::vector<size_t>& points, Eigen::Vector3d p, Eigen::Vector3d dir, Eigen::Vector3d norm,
+        std::vector<std::vector<std::vector<bool>>>& visited, Eigen::Hyperplane<double, 3> thisPlane, bool unpadded);
+
+    void UniformPC::padX(size_t x, size_t y, size_t z, std::vector<size_t>& points, std::vector<std::vector<std::vector<bool>>>& visited,
+        Eigen::Hyperplane<double, 3> thisPlane, bool left, bool right);
 
     void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &thisPoints,
         Eigen::Hyperplane<double, 3> thisPlane);
