@@ -7,12 +7,8 @@ But then checking which cells have been already added parallely is a pain...
 
 
 TODO
-Calculate by hand the cells adjacent to a plane
-Check cells traversed:
-	if cell list is the same something is going on with the addPoints
-	if not the same fix it - what is causing the edge cases?
-Try moving first ray point forward a little so it's not directly on the boundary (rework loop so that it does a floored number of steps?)
-Test where extreme points are being hashed to
+Ask steven about issues with diagonal planes
+Profile on larger models
 
 
 profile time taken for uniform SS

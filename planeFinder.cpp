@@ -25,8 +25,9 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     //TEST
-    //Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>({1, 1, 1}, pointCloud.getPoint(56).location);
-    //std::vector<size_t> testy = pointCloud.planePoints(test);
+    Eigen::Vector3d norm = { 1, 1, 1 };
+    Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>(norm.normalized(), pointCloud.getPoint(56).location);
+    std::vector<size_t> testy = pointCloud.planePoints(test);
 
     do {
         // Initial number of trials, very high from lowball initial inlier ratio
@@ -152,10 +153,12 @@ int main(int argc, char* argv[]) {
     if (structure == "uniform") {
         UniformPC u = UniformPC(pointCloud, 10);
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(u, gen, success, noise, threshold, maxTrials);
+        std::cout << "Total point distance calculations made: " << u.comparisons << std::endl;
         recolor(u, outputFile, colours);
     }
     else {
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+        std::cout << "Total point distance calculations made: " << pointCloud.comparisons << std::endl;
         recolor(pointCloud, outputFile, colours);
     }
 }

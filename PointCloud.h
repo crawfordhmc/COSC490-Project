@@ -23,6 +23,7 @@ public:
 	size_t size = 0;
 	double threshold;
 	std::vector<size_t> remainingPoints;
+	size_t comparisons = 0;
 
 	PointCloud(const std::string& filepath, float scale_parameter);
 

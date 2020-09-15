@@ -151,6 +151,7 @@ std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPla
 #pragma omp critical
 			thisPoints.push_back(remainingPoints[i]);
 	}
+	comparisons += remainingPoints.size();
 	return thisPoints;
 }
 

@@ -12,6 +12,18 @@ UniformPC::UniformPC(PointCloud const&p, float voxel_scale) : PointCloud(p) {
     x_voxels = ceil((XL - XS) / voxel_size);
     y_voxels = ceil((YL - YS) / voxel_size);
     z_voxels = ceil((ZL - ZS) / voxel_size);
+
+    //extend bounding box slightly to fit voxels perfectly
+    double x_diff = x_voxels * voxel_size - (XL - XS);
+    XS -= x_diff / 2;
+    XL += x_diff / 2;
+    double y_diff = y_voxels * voxel_size - (YL - YS);
+    YS -= y_diff / 2;
+    YL += y_diff / 2;
+    double z_diff = z_voxels * voxel_size - (ZL - ZS);
+    YS -= z_diff / 2;
+    YL += z_diff / 2;
+
     // check how best to order these for access time
     //cells = std::vector<std::vector<std::vector<std::vector<size_t>*>>>(x_voxels, std::vector<std::vector<std::vector<size_t>*>>(y_voxels, std::vector<std::vector<size_t>*>(z_voxels)));
     cells = std::vector<std::vector<std::vector<std::vector<size_t>>>>(x_voxels, std::vector<std::vector<std::vector<size_t>>>(y_voxels, std::vector<std::vector<size_t>>(z_voxels)));
@@ -74,8 +86,11 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     Eigen::Vector3d fixed = {1, 0, 0};
     fixed = thisPlane.normal().cross(fixed);
     // make sure cross product is oriented into the bounding box
-    if ((raydir[1] == 1 && fixed[1] < 0) || raydir[1] == -1 && fixed[1] > 0) raydir = (-1 * fixed).normalized();
-    else if ((raydir[2] == 1 && fixed[2] < 0) || raydir[2] == -1 && fixed[2] > 0) raydir = (-1 * fixed).normalized();
+    if ((raydir[1] == 1 && fixed[1] < 0) || raydir[1] == -1 && fixed[1] > 0) fixed[1] = -fixed[1];
+    else if ((raydir[2] == 1 && fixed[2] < 0) || raydir[2] == -1 && fixed[2] > 0) fixed[2] = -fixed[2];
+    raydir = fixed.normalized();
+    //test
+    double testy = thisPlane.absDistance(p2 + raydir);
 
     // indexes of points on the plane to be returned
     std::vector<size_t> indexes;
@@ -98,16 +113,16 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     //            if (visited[a][b][c]) std::cout << a << b << c << std::endl;
 
 //    std::cout << "AAAAAAAAAAAA" << std::endl;
-//    signed long long i = 0;
-//#pragma omp parallel for
-//    for (i = 0; i < remainingPoints.size(); ++i) {
-//        if (thisPlane.absDistance(pc[i].location) < threshold) {
-//            std::vector<size_t> loc = hashCell(pc[i].location);
-//            if (!visited[loc[0]][loc[1]][loc[2]])
-//#pragma omp critical
-//                std::cout << loc[0] << loc[1] << loc[2] << " distance is " << thisPlane.absDistance(pc[i].location) << std::endl;
-//        }
-//    }
+    signed long long i = 0;
+#pragma omp parallel for
+    for (i = 0; i < pc.size(); ++i) {
+        if (thisPlane.absDistance(pc[i].location) < threshold) {
+            std::vector<size_t> loc = hashCell(pc[i].location);
+            if (!visited[loc[0]][loc[1]][loc[2]])
+#pragma omp critical
+                std::cout << loc[0] << loc[1] << loc[2] << " distance is " << thisPlane.absDistance(pc[i].location) << std::endl;
+        }
+    }
 
     return indexes;
 
@@ -134,22 +149,21 @@ void UniformPC::cleary(std::vector<size_t> &points, std::vector<size_t> cell, Ei
             if (!cells[cell[0]][cell[1]][cell[2]].empty()) //push thresholded points from cell onto points vector
                 addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane);
             visited[cell[0]][cell[1]][cell[2]] = true;
-        }
-
-        //visit adjacent cells LIMIT TO START LINE X DIRECTION BEING LESS THAN HALF?
-        //x negative
-        if (x_down) {
-            if (!visited[cell[0] - 1][cell[1]][cell[2]]) {
-                if (!cells[cell[0] - 1][cell[1]][cell[2]].empty())
-                    addPoints(cells[cell[0] - 1][cell[1]][cell[2]], points, thisPlane);
-                visited[cell[0] - 1][cell[1]][cell[2]] = true;
-            }
-        } // x positive
-        if (x_up) {
-            if (!visited[cell[0] + 1][cell[1]][cell[2]]) {
-                if (!cells[cell[0] + 1][cell[1]][cell[2]].empty())
-                    addPoints(cells[cell[0] + 1][cell[1]][cell[2]], points, thisPlane);
-                visited[cell[0] + 1][cell[1]][cell[2]] = true;
+            //visit adjacent cells
+            //x negative
+            if (x_down) {
+                if (!visited[cell[0] - 1][cell[1]][cell[2]]) {
+                    if (!cells[cell[0] - 1][cell[1]][cell[2]].empty())
+                        addPoints(cells[cell[0] - 1][cell[1]][cell[2]], points, thisPlane);
+                    visited[cell[0] - 1][cell[1]][cell[2]] = true;
+                }
+            } // x positive
+            if (x_up) {
+                if (!visited[cell[0] + 1][cell[1]][cell[2]]) {
+                    if (!cells[cell[0] + 1][cell[1]][cell[2]].empty())
+                        addPoints(cells[cell[0] + 1][cell[1]][cell[2]], points, thisPlane);
+                    visited[cell[0] + 1][cell[1]][cell[2]] = true;
+                }
             }
         }
 
@@ -162,6 +176,21 @@ void UniformPC::cleary(std::vector<size_t> &points, std::vector<size_t> cell, Ei
                     if (!cells[cell[0]][cell[1]][z].empty())
                         addPoints(cells[cell[0]][cell[1]][z], points, thisPlane);
                     visited[cell[0]][cell[1]][z] = true;
+                    //-x-z
+                    if (x_down) {
+                        if (!visited[cell[0] - 1][cell[1]][z]) {
+                            if (!cells[cell[0] - 1][cell[1]][z].empty())
+                                addPoints(cells[cell[0] - 1][cell[1]][z], points, thisPlane);
+                            visited[cell[0] - 1][cell[1]][z] = true;
+                        }
+                    } //+x-z
+                    if (x_up) {
+                        if (!visited[cell[0] + 1][cell[1]][z]) {
+                            if (!cells[cell[0] + 1][cell[1]][z].empty())
+                                addPoints(cells[cell[0] + 1][cell[1]][z], points, thisPlane);
+                            visited[cell[0] + 1][cell[1]][z] = true;
+                        }
+                    }
                 }
             } //z positive
             if (cell[2] < z_voxels - 1) {
@@ -170,6 +199,21 @@ void UniformPC::cleary(std::vector<size_t> &points, std::vector<size_t> cell, Ei
                     if (!cells[cell[0]][cell[1]][z].empty())
                         addPoints(cells[cell[0]][cell[1]][z], points, thisPlane);
                     visited[cell[0]][cell[1]][z] = true;
+                    //-x+z
+                    if (x_down) {
+                        if (!visited[cell[0] - 1][cell[1]][z]) {
+                            if (!cells[cell[0] - 1][cell[1]][z].empty())
+                                addPoints(cells[cell[0] - 1][cell[1]][z], points, thisPlane);
+                            visited[cell[0] - 1][cell[1]][z] = true;
+                        }
+                    } //+x+z
+                    if (x_up) {
+                        if (!visited[cell[0] + 1][cell[1]][z]) {
+                            if (!cells[cell[0] + 1][cell[1]][z].empty())
+                                addPoints(cells[cell[0] + 1][cell[1]][z], points, thisPlane);
+                            visited[cell[0] + 1][cell[1]][z] = true;
+                        }
+                    }
                 }
             } // going to the y adjacent cell
             dy += theta_y;
@@ -183,6 +227,21 @@ void UniformPC::cleary(std::vector<size_t> &points, std::vector<size_t> cell, Ei
                     if (!cells[cell[0]][y][cell[2]].empty())
                         addPoints(cells[cell[0]][y][cell[2]], points, thisPlane);
                     visited[cell[0]][y][cell[2]] = true;
+                    //-x-y
+                    if (x_down) {
+                        if (!visited[cell[0] - 1][y][cell[2]]) {
+                            if (!cells[cell[0] - 1][y][cell[2]].empty())
+                                addPoints(cells[cell[0] - 1][y][cell[2]], points, thisPlane);
+                            visited[cell[0] - 1][y][cell[2]] = true;
+                        }
+                    } //+x-y
+                    if (x_up) {
+                        if (!visited[cell[0] + 1][y][cell[2]]) {
+                            if (!cells[cell[0] + 1][y][cell[2]].empty())
+                                addPoints(cells[cell[0] + 1][y][cell[2]], points, thisPlane);
+                            visited[cell[0] + 1][y][cell[2]] = true;
+                        }
+                    }
                 }
             } //y positive
             if (cell[1] < y_voxels - 1) {
@@ -191,6 +250,21 @@ void UniformPC::cleary(std::vector<size_t> &points, std::vector<size_t> cell, Ei
                     if (!cells[cell[0]][y][cell[2]].empty())
                         addPoints(cells[cell[0]][y][cell[2]], points, thisPlane);
                     visited[cell[0]][y][cell[2]] = true;
+                    //-x+y
+                    if (x_down) {
+                        if (!visited[cell[0] - 1][y][cell[2]]) {
+                            if (!cells[cell[0] - 1][y][cell[2]].empty())
+                                addPoints(cells[cell[0] - 1][y][cell[2]], points, thisPlane);
+                            visited[cell[0] - 1][y][cell[2]] = true;
+                        }
+                    } //+x+y
+                    if (x_up) {
+                        if (!visited[cell[0] + 1][y][cell[2]]) {
+                            if (!cells[cell[0] + 1][y][cell[2]].empty())
+                                addPoints(cells[cell[0] + 1][y][cell[2]], points, thisPlane);
+                            visited[cell[0] + 1][y][cell[2]] = true;
+                        }
+                    }
                 }
             } // going to the z adjacent cell
             dz += theta_z;
@@ -212,4 +286,5 @@ void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &this
 #pragma omp critical
             thisPoints.push_back(indexes[i]);
     }
+    comparisons += indexes.size();
 }
