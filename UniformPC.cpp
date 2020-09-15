@@ -69,6 +69,10 @@ std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
         y -= 1;
     if (z == z_voxels)
         z == 1;
+    //check
+    if (p[0] > x * voxel_size - XS && p[0] < (x + 1) * voxel_size - XS) std::cout << "shit" << std::endl;
+    if (p[1] > y * voxel_size - XS && p[1] < (y + 1) * voxel_size - YS) std::cout << "shit" << std::endl;
+    if (p[1] > z * voxel_size - XS && p[2] < (z + 1) * voxel_size - ZS) std::cout << "shit" << std::endl;
     return {x, y, z};
 }
 
@@ -78,46 +82,43 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     int edge = 0;
     Eigen::Vector3d p1 = edges[edge].intersectionPoint(thisPlane);
     // while the found point is out of bounds find another
-    while (p1[0] < XS || p1[0] > XL || p1[1] < YS || p1[1] > YL || p1[2] < ZS || p1[2] > ZL) p1 = edges[++edge].intersectionPoint(thisPlane);
+    while (p1[0] < XS || p1[0] > XL || p1[1] < YS || p1[1] > YL || p1[2] < ZS || p1[2] > ZL) 
+        p1 = edges[++edge].intersectionPoint(thisPlane);
     //get second edge intersection
     int edge2 = edge + 1;
     Eigen::Vector3d p2 = edges[edge2].intersectionPoint(thisPlane);
-    Eigen::Vector3d norm = { 0, 0, 0 };
-    // while the found point is out of bounds or the line between them will be on a wall with an x normal, find another point
-    while (abs(norm[0]) == 1 || p2[0] < XS || p2[0] > XL || p2[1] < YS || p2[1] > YL || p2[2] < ZS || p2[2] > ZL) {
+    //line to cast rays from
+    Eigen::ParametrizedLine<double, 3> start_line = Eigen::ParametrizedLine<double, 3>::Through(p1, p2);
+    Eigen::Vector3d norm = edges[edge].direction().cross(start_line.direction());
+    while (norm[0] != 0 || p2[0] < XS || p2[0] > XL || p2[1] < YS || p2[1] > YL || p2[2] < ZS || p2[2] > ZL) { //point is out of bounds
         p2 = edges[++edge2].intersectionPoint(thisPlane);
-        if (edges[edge].direction() == edges[edge2].direction()) // edges are parallel
-            norm = edges[edge].direction().cross((edges[edge2].origin() - edges[edge].origin()).normalized());
-        else norm = edges[edge].direction().cross(edges[edge2].direction());
+        start_line = Eigen::ParametrizedLine<double, 3>::Through(p1, p2);
+        norm = edges[edge].direction().cross(start_line.direction());
     }
+    norm.normalize();
     //make sure norm is oriented into the bounding box
     if (abs(norm[1]) == 1 && (norm[1] + p1[1] < YS || norm[1] + p1[1] > YL)) norm[1] = -1 * norm[1];
     else if (norm[2] + p1[2] < ZS || norm[2] + p1[2] > ZL) norm[2] = -1 * norm[2];
 
-    //line to cast rays from
-    Eigen::ParametrizedLine<double, 3> start_line = Eigen::ParametrizedLine<double, 3>::Through(p1, p2);
-    // rays are cast one voxel size apart to ensure with the overlap in cleary's, all nearby voxels will be traversed
-    Eigen::Vector3d step = start_line.direction() * voxel_size;
     // these rays should be fixed in the x direction, and vary in the y and z directions to fit the plane
     Eigen::Vector3d raydir = {1, 0, 0};
     raydir = thisPlane.normal().cross(raydir);
     // make sure cross product is oriented into the bounding box
     if ((norm[1] == 1 && raydir[1] < 0) || norm[1] == -1 && raydir[1] > 0) raydir = -raydir;
     else if ((norm[2] == 1 && raydir[2] < 0) || norm[2] == -1 && raydir[2] > 0) raydir = -raydir;
-    double testy = thisPlane.absDistance(p2 + raydir);
 
     // indexes of points on the plane to be returned
     std::vector<size_t> indexes;
     // 3D truth array of visited voxels
     std::vector<std::vector<std::vector<bool>>> visited;
     visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
-    //if the starting line is changing in x rapidly, rays will be stacked on top of each other in the x direction
-    bool unpadded = true; // abs(start_line.direction()[0]) <= 0.5; //otherwise padding with x adjacent cells will be needed to catch all points
-    // is this proof I should do 3d clearys with an unfixed line instead?
-
+    // rays are cast one voxel size apart to ensure with the overlap in cleary's, all nearby voxels will be traversed
+    // (0.1 off to correct for prescision errors)
+    Eigen::Vector3d step = start_line.direction() * voxel_size * 0.9;
 
     while (p1[0] >= XS && p1[0] <= XL && p1[1] >= YS && p1[1] <= YL && p1[2] >= ZS && p1[2] <= ZL) {
-        cleary(indexes, p1, raydir, norm, visited, thisPlane, unpadded);
+        double testy = thisPlane.absDistance(p1 + raydir);
+        cleary(indexes, p1, raydir, norm, visited, thisPlane, true);
         p1 += step;
     } 
 
@@ -177,25 +178,14 @@ void UniformPC::cleary(std::vector<size_t>& points, Eigen::Vector3d p, Eigen::Ve
         visited[cell[0]][cell[1]][cell[2]] = true;
         padX(cell[0], cell[1], cell[2], points, visited, thisPlane, left, right);
     }
-
-
-    if (cell[1] > 0 && cell[2] < z_voxels - 1) {
-        if (!cells[cell[0]][cell[1] - 1][cell[2] + 1].empty())
-            addPoints(cells[cell[0]][cell[1] - 1][cell[2] + 1], points, thisPlane);
-        visited[cell[0]][cell[1] - 1][cell[2] + 1] = true;
-        padX(cell[0], cell[1] - 1, cell[2] + 1, points, visited, thisPlane, left, right);
-    }
-    if (cell[1] < y_voxels - 1 && cell[2] < z_voxels - 1) {
-        if (!cells[cell[0]][cell[1] + 1][cell[2] + 1].empty())
-            addPoints(cells[cell[0]][cell[1] + 1][cell[2] + 1], points, thisPlane);
-        visited[cell[0]][cell[1] + 1][cell[2] + 1] = true;
-        padX(cell[0], cell[1] + 1, cell[2] + 1, points, visited, thisPlane, left, right);
-    }
+    std::cout << cell[0] << cell[1] << cell[2] << std::endl;
     
     // the >= 0 check isn't needed because a size_t will simply overflow to greater than the limit when negative anyway!
     while (cell[1] < y_voxels && cell[2] < z_voxels) {
         //note that due to the adjacent cell checking getting ahead of itself, actually checking the current cell is not needed.
         std::cout << cell[0] << cell[1] << cell[2] << std::endl;
+        //std::vector<size_t> testy = hashCell(p + dy * dir);
+        //std::vector<size_t> testz = hashCell(p + dz * dir);
         //z negative
         if (cell[2] > 0) {
             z = cell[2] - 1;
