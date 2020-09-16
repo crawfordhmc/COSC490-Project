@@ -7,7 +7,8 @@ But then checking which cells have been already added parallely is a pain...
 
 
 TODO
-see if ray casting is the reason for missing voxels?
+A point greater than the z limit is being sent to the hasher, find it
+A coeff 0.7, 0.7, 0 plane is returning 0 points
 
 
 profile time taken for uniform SS

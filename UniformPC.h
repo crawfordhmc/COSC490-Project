@@ -11,13 +11,13 @@
 class UniformPC : public PointCloud {
 public:
 
-    UniformPC(PointCloud const&p, float voxel_scale);
+    UniformPC(PointCloud const&p, int voxel_scale);
 
     std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane);
 
 protected:
 
-    double voxel_size;
+    int voxel_size;
     int x_voxels, y_voxels, z_voxels;
     std::vector<std::vector<std::vector<std::vector<size_t>>>> cells;
 
