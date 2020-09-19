@@ -19,12 +19,13 @@ protected:
 
     int voxel_size;
     int x_voxels, y_voxels, z_voxels;
+    Eigen::Vector3i limits;
     std::vector<std::vector<std::vector<std::vector<size_t>>>> cells;
 
     std::vector<size_t> hashCell(Eigen::Vector3d p);
 
-    void UniformPC::cleary(std::vector<size_t>& points, Eigen::Vector3d p, Eigen::Vector3d dir, Eigen::Vector3d norm,
-        std::vector<std::vector<std::vector<bool>>>& visited, Eigen::Hyperplane<double, 3> thisPlane, bool unpadded);
+    void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<size_t> cell, Eigen::Vector3d dir, Eigen::Vector3d norm,
+        std::vector<std::vector<std::vector<bool>>>& visited, Eigen::Hyperplane<double, 3> thisPlane);
 
     void UniformPC::padX(size_t x, size_t y, size_t z, std::vector<size_t>& points, std::vector<std::vector<std::vector<bool>>>& visited,
         Eigen::Hyperplane<double, 3> thisPlane, bool left, bool right);
