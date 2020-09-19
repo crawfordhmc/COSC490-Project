@@ -105,7 +105,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     int edge = 0;
     Eigen::Vector3d p1 = edges[edge].intersectionPoint(thisPlane);
     // while the found point is out of bounds find another
-    while (p1[0] < XS || p1[0] > XL || p1[1] < YS || p1[1] > YL || p1[2] < ZS || p1[2] > ZL) 
+    while (p1[0] < XS || p1[0] > XL || p1[1] < YS || p1[1] > YL || p1[2] < ZS || p1[2] > ZL)
         p1 = edges[++edge].intersectionPoint(thisPlane);
     //get second edge intersection
     int edge2 = edge + 1;
@@ -124,7 +124,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     else if (norm[2] + p1[2] < ZS || norm[2] + p1[2] > ZL) norm[2] = -1 * norm[2];
 
     // these rays should be fixed in the x direction, and vary in the y and z directions to fit the plane
-    Eigen::Vector3d raydir = {1, 0, 0};
+    Eigen::Vector3d raydir = { 1, 0, 0 };
     if (raydir.isApprox(thisPlane.normal()))
         raydir = norm;
     else
@@ -147,23 +147,36 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     bool right = start_line.direction()[0] > 0;
     bool up = start_line.direction()[yz] > 0;
 
+    //absolute distance travelled in the y/z direction
+    double pyz = p1[yz] - (yz == 1 ? YS : ZS);
     double theta_x = voxel_size / abs(start_line.direction()[0]);
+    // the x axis distance to the next cell (will be voxel_size if the lines does not have an x offset)
     double next_x = right ? (cell[0] + 1) * voxel_size - (p1[0] - XS) : p1[0] - XS - cell[0] * voxel_size;
     double dx = next_x / abs(start_line.direction()[0]);
-    double theta_yz = voxel_size / (yz == 1 ? abs(start_line.direction()[1]) : abs(start_line.direction()[2]));
-    double next_yz = yz == 1 ? (up ? (cell[1] + 1) * voxel_size - (p1[1] - YS) : p1[1] - YS - cell[1] * voxel_size) :
-        (up ? (cell[2] + 1) * voxel_size - (p1[2] - ZS) : p1[2] - ZS - cell[2] * voxel_size);
-    double dyz = next_yz / ( yz == 1 ? abs(start_line.direction()[1]) : abs(start_line.direction()[2]));
+    double theta_yz = voxel_size / abs(start_line.direction()[yz]);
+    // the y/z axis distance to the next cell (will be voxel_size if the lines does not have an y/z offset)
+    double next_yz = (up ? (cell[yz] + 1) * voxel_size - pyz : pyz - cell[yz] * voxel_size);
+    double dyz = next_yz / abs(start_line.direction()[yz]);
+    //now change the distance to the next cell to reflect the ray direction
+    bool rayup = raydir[yz] > 0;
+    if ((up && !rayup) || (!up && rayup))
+        next_yz = voxel_size - next_yz;
 
     while (cell[0] < x_voxels && cell[yz] < limits[yz]) {
+        //pass the indexes to append to in place, the y or z intercept, the starting cell, the ray direction, the plane norm, 
+        //the visited array to edit in place and the plane to measure distance from
         cleary(indexes, next_yz, cell, raydir, norm, visited, thisPlane);
         if (dx < dyz) {
             (right) ? cell[0] += 1 : cell[0] -= 1;
             dx += theta_x;
+            pyz = theta_x * abs(start_line.direction()[yz]);
+            next_yz = (rayup ? (cell[yz] + 1) * voxel_size - pyz : pyz - cell[yz] * voxel_size);
         }
         else {
             (up) ? cell[yz] += 1 : cell[yz] -= 1;
             dyz += theta_yz;
+            pyz += voxel_size;
+            next_yz = voxel_size;
         }
     }
 
@@ -197,11 +210,11 @@ void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<
     double theta_y, theta_z, dy, dz;
     theta_y = voxel_size / abs(dir[1]);
     theta_z = voxel_size / abs(dir[2]);
-    if (norm[1] == 0) {
+    if (norm[1] != 1) { // if y changed in the starting line
         dy = next_yz / abs(dir[1]);
         dz = theta_z;
     }
-    else {
+    else { // if z changed in the starting line
         dy = theta_y;
         dz = next_yz  / abs(dir[2]);
     }
