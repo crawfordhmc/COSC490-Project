@@ -8,9 +8,17 @@ But then checking which cells have been already added parallely is a pain...
 
 TODO
 Run full model vector PC on the workstation on monday
-Don't bother with points 2 voxes away - they'll be borderline within the threshold anyway
+Don't bother with points 2 voxels away - they'll be borderline within the threshold anyway
+Find a way to retroactively see the last valid line point and ray point when the missing point alert is triggered (check progression)
+No padding errors noted so far
+Hashing errors don't seem to be occuring either
+Visited and empty checking is correct
 
 
+REPORT
+Get uniform space subdivision to a point where at least the performance is comparable
+Compare to show gains
+Explain difficulties: floating-point prescision and hashing errors, padding, getting correct vectors with varying axis
 
 
 Parallel level 1: Planes
