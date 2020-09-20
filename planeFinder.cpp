@@ -53,6 +53,7 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
                 pointCloud.getPoint(foundPoints[2]).location);
             // Add points closer than threshold to this plane
             std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane);
+            size_t a = pointCloud.comparisons;
 
             // Update plane with the most points
             if (thisPoints.size() > bestPoints.size()) {
@@ -111,7 +112,7 @@ int main(int argc, char* argv[]) {
     float threshold = -1;
     int maxTrials = 1000;
     float scale_parameter = 0.01;
-    std::string structure = "";
+    int voxel_size;
 
     // Parse the command line
     if (argc < 7 || argc > 8) {
@@ -127,7 +128,7 @@ int main(int argc, char* argv[]) {
         maxTrials = atoi(argv[5]);
         scale_parameter = atof(argv[6]);
         if (argc == 8)
-            structure = argv[7];
+            voxel_size = atoi(argv[7]);
     }
 
     // Set up random seed
@@ -150,8 +151,11 @@ int main(int argc, char* argv[]) {
     std::cout << "Auto-generated threshold is " << threshold << std::endl;
     if (planes.size() > colours.size()) std::cout << "Warning: more planes than colours" << std::endl;
 
-    if (structure == "uniform") {
-        UniformPC u = UniformPC(pointCloud, 10);
+
+    //TESTING IDEA: run multiple ransac runs in here, resetting the comparisons number each time, to quickly compare times/comparisons
+    //recolor results in a seperate run since noise points will be written over
+    if (argc == 8) {
+        UniformPC u = UniformPC(pointCloud, voxel_size);
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(u, gen, success, noise, threshold, maxTrials);
         std::cout << "Total point distance calculations made: " << u.comparisons << std::endl;
         recolor(u, outputFile, colours);

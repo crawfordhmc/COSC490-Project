@@ -65,8 +65,11 @@ UniformPC::UniformPC(PointCloud const&p, int voxel_scale) : PointCloud(p) {
 
     std::vector<size_t> cell;
     // for each point, hash their index in the vector into a cell
-    for (size_t i = 0; i < pc.size(); ++i) {
+    signed long long i = 0;
+//#pragma omp parallel for
+    for (i = 0; i < pc.size(); ++i) {
         cell = hashCell(pc[i].location);
+//#pragma omp critical
         cells[cell[0]][cell[1]][cell[2]].push_back(i);
     }
 }
@@ -80,20 +83,20 @@ std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
     if (y > y_voxels - 1) y = y_voxels - 1;
     if (z > z_voxels - 1) z = z_voxels - 1;
 
-    if (p[0] - XS > (x + 1) * voxel_size)
-        std::cout << p[0] << std::endl;
-    if (p[0] - XS < x * voxel_size)
-        std::cout << p[0] << std::endl;
+    //if (p[0] - XS > (x + 1) * voxel_size)
+    //    std::cout << p[0] << std::endl;
+    //if (p[0] - XS < x * voxel_size)
+    //    std::cout << p[0] << std::endl;
 
-    if (p[1] - YS > (y + 1) * voxel_size)
-        std::cout << p[1] << std::endl;
-    if (p[1] - YS < y * voxel_size)
-        std::cout << p[1] << std::endl;
+    //if (p[1] - YS > (y + 1) * voxel_size)
+    //    std::cout << p[1] << std::endl;
+    //if (p[1] - YS < y * voxel_size)
+    //    std::cout << p[1] << std::endl;
 
-    if (p[2] - ZS > (z + 1) * voxel_size)
-        std::cout << p[2] << std::endl;
-    if (p[2] - ZS < z * voxel_size)
-        std::cout << p[2] << std::endl;
+    //if (p[2] - ZS > (z + 1) * voxel_size)
+    //    std::cout << p[2] << std::endl;
+    //if (p[2] - ZS < z * voxel_size)
+    //    std::cout << p[2] << std::endl;
 
     return {x, y, z};
 }

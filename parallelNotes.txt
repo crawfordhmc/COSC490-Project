@@ -21,47 +21,9 @@ Compare to show gains
 Explain difficulties: floating-point prescision and hashing errors, padding, getting correct vectors with varying axis
 
 
-Parallel level 1: Planes
-	Nature: planes are detected by trials until a % of the scene is explained by planes, or max number of trials is hit (determine with threads?)
-	Issue: Don't know how many planes. 
-
-Parallel level 2: Trials
-	Nature: each trial finds a possible plane
-	Issue: number of trials is updated in runtime by the outlier ratio
-	Solution: determine a minimum plane size relative to the point cloud size (3 to start), give points a plane list property, valid planes fight for points.
-	Will taking the largest planes that explain a % of the scene give the best solution? (i think so)
-
-Parallel level 3: Distance comparisons (up to 20ms serially in cube model, 9ms in parallel)
-	Nature: chunk points to calculate distance with into threads
-	Issue: requires signed integer for OpenMP, so not as robust. Currently loop variable is only added to though, so no occasion for it to drop below zero.
-	Limit model number of points to signed long long max?
-
-
-The package tinyply:x64-windows provides CMake targets:
-
-    find_package(tinyply CONFIG REQUIRED)
-    target_link_libraries(main PRIVATE tinyply)
-
 PROFILING
-on medium studio with 100 trials, 4 threads:
-parallel 32s
-serial 113s
+Vector full model comparisons for one plane: 52,182,710
 
-PROFILING 2 ELECTRIC BOOGALOO
-88435studio,
-        0.995,
-        0.995,
-        1000,
-        0.02
-1 thread: 106s, 102, 110, 113, 134 average 113
-2 threads: 55 49 50 50 58 average 52.4
-3 threads: 32s, 41, 34, 37, 34 average 35.6
-4 threads: 39s, 26, 32, 34, 28 average 31.8
+Uniform full model comparisons for one plane: 10,500,583
 
 
-
-
-excel for graphs or online
-python on laptop
-
-consistently float images above or below paragraph
