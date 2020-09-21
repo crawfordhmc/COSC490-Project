@@ -83,20 +83,20 @@ std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
     if (y > y_voxels - 1) y = y_voxels - 1;
     if (z > z_voxels - 1) z = z_voxels - 1;
 
-    //if (p[0] - XS > (x + 1) * voxel_size)
-    //    std::cout << p[0] << std::endl;
-    //if (p[0] - XS < x * voxel_size)
-    //    std::cout << p[0] << std::endl;
+    if (p[0] - XS > (x + 1) * voxel_size)
+        std::cout << p[0] << std::endl;
+    if (p[0] - XS < x * voxel_size)
+        std::cout << p[0] << std::endl;
 
-    //if (p[1] - YS > (y + 1) * voxel_size)
-    //    std::cout << p[1] << std::endl;
-    //if (p[1] - YS < y * voxel_size)
-    //    std::cout << p[1] << std::endl;
+    if (p[1] - YS > (y + 1) * voxel_size)
+        std::cout << p[1] << std::endl;
+    if (p[1] - YS < y * voxel_size)
+        std::cout << p[1] << std::endl;
 
-    //if (p[2] - ZS > (z + 1) * voxel_size)
-    //    std::cout << p[2] << std::endl;
-    //if (p[2] - ZS < z * voxel_size)
-    //    std::cout << p[2] << std::endl;
+    if (p[2] - ZS > (z + 1) * voxel_size)
+        std::cout << p[2] << std::endl;
+    if (p[2] - ZS < z * voxel_size)
+        std::cout << p[2] << std::endl;
 
     return {x, y, z};
 }
@@ -136,7 +136,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     // make sure cross product is oriented into the bounding box (need to reverse the whole vector)
     if ((norm[1] == 1 && raydir[1] < 0) || norm[1] == -1 && raydir[1] > 0) raydir = -raydir;
     else if ((norm[2] == 1 && raydir[2] < 0) || norm[2] == -1 && raydir[2] > 0) raydir = -raydir;
-    //double raytest = thisPlane.absDistance(p1 + raydir);
+    double raytest = thisPlane.absDistance(p1 + raydir);
 
     // indexes of points on the plane to be returned
     std::vector<size_t> indexes;
@@ -166,46 +166,43 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
     if ((up && !rayup) || (!up && rayup))
         next_yz = voxel_size - next_yz;
 
-    //std::cout << thisPlane.normal()[0] << thisPlane.normal()[1] << thisPlane.normal()[2] << ", d = " << thisPlane.coeffs()[3] << std::endl;
+    std::cout << thisPlane.normal()[0] << thisPlane.normal()[1] << thisPlane.normal()[2] << ", d = " << thisPlane.coeffs()[3] << std::endl;
     while (cell[0] < x_voxels && cell[yz] < limits[yz]) {
         //pass the indexes to append to in place, the y or z intercept, the starting cell, the ray direction, the plane norm, 
         //the visited array to edit in place and the plane to measure distance from
-        cleary(indexes, next_yz, cell, raydir, norm, visited, thisPlane);//, p1);
+        cleary(indexes, next_yz, cell, raydir, norm, visited, thisPlane, p1);
         if (dx < dyz) {
             (right) ? cell[0] += 1 : cell[0] -= 1;
             dx += theta_x;
             pyz = dx * abs(start_line.direction()[yz]);
             next_yz = (rayup ? (cell[yz] + 1) * voxel_size - pyz : pyz - cell[yz] * voxel_size);
-            //p1 = start_line.pointAt(dx);
+            p1 = start_line.pointAt(dx);
         }
         else {
             (up) ? cell[yz] += 1 : cell[yz] -= 1;
             dyz += theta_yz;
             pyz += voxel_size;
             next_yz = voxel_size;
-            //p1 = start_line.pointAt(dyz);
+            p1 = start_line.pointAt(dyz);
         }
     }
 
-//    signed long long i = 0;
-//    size_t pointys = 0;
-////#pragma omp parallel for
-//        for (i = 0; i < remainingPoints.size(); ++i) {
-//            if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold) {
-////#pragma omp critical
-//                //indexes.push_back(remainingPoints[i]);
-//                Eigen::Vector3d proj = thisPlane.projection(pc[remainingPoints[i]].location);
-//                std::vector<size_t> loc = hashCell(pc[remainingPoints[i]].location);
-//                std::vector<size_t> poc = hashCell(proj);
-//                if (!visited[loc[0]][loc[1]][loc[2]]) {
-//                    std::cout << loc[0] << loc[1] << loc[2] << " distance is " << thisPlane.absDistance(pc[remainingPoints[i]].location) << std::endl;
-//                    std::cout << "projection " << poc[0] << poc[1] << poc[2] << ", covered: " << visited[poc[0]][poc[1]][poc[2]] << ", location is " << proj[0] << "/" << proj[1] << "/" << proj[2] << std::endl;
-//                }
-//            }
-//        }
+    signed long long i = 0;
+//#pragma omp parallel for
+        for (i = 0; i < remainingPoints.size(); ++i) {
+            if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold) {
+//#pragma omp critical
+                //indexes.push_back(remainingPoints[i]);
+                Eigen::Vector3d proj = thisPlane.projection(pc[remainingPoints[i]].location);
+                std::vector<size_t> loc = hashCell(pc[remainingPoints[i]].location);
+                std::vector<size_t> poc = hashCell(proj);
+                if (!visited[loc[0]][loc[1]][loc[2]]) {
+                    std::cout << loc[0] << loc[1] << loc[2] << " distance is " << thisPlane.absDistance(pc[remainingPoints[i]].location) << std::endl;
+                    std::cout << "projection " << poc[0] << poc[1] << poc[2] << ", covered: " << visited[poc[0]][poc[1]][poc[2]] << ", location is " << proj[0] << "/" << proj[1] << "/" << proj[2] << std::endl;
+                }
+            }
+        }
     //comparisons += remainingPoints.size();
-    //if (pointys != indexes.size())
-        //std::cout <<"a" << std::endl;
     return indexes;
 
 }
@@ -213,7 +210,7 @@ std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlan
 
 //Adds points in place within the threshold of a 2D ray in a 3D bounding box
 void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<size_t> cell, Eigen::Vector3d dir, Eigen::Vector3d norm,
-    std::vector<std::vector<std::vector<bool>>> &visited, Eigen::Hyperplane<double, 3> thisPlane) {//, Eigen::Vector3d fuckingpoint) {
+    std::vector<std::vector<std::vector<bool>>> &visited, Eigen::Hyperplane<double, 3> thisPlane, Eigen::Vector3d fpoint) {
 
     double theta_y, theta_z, dy, dz;
     theta_y = voxel_size / abs(dir[1]);
@@ -240,7 +237,7 @@ void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<
         visited[cell[0]][cell[1]][cell[2]] = true;
         padX(cell[0], cell[1], cell[2], points, visited, thisPlane, left, right);
     }
-    //std::cout << "start of ray:" << std::endl;
+    std::cout << "start of ray:" << std::endl;
     
     // the >= 0 check isn't needed because a size_t will simply overflow to greater than the limit when negative anyway!
     while (cell[1] < y_voxels && cell[2] < z_voxels) {
@@ -322,14 +319,14 @@ void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<
         if (dy < dz) {
             dy += theta_y;  // going to the y adjacent cell
             (up) ? cell[1] += 1 : cell[1] -= 1;
-            //std::cout << "distance from plane: " << thisPlane.absDistance(fuckingpoint + dir * dy) << std::endl;
+            std::cout << "distance from plane: " << thisPlane.absDistance(fpoint + dir * dy) << std::endl;
         }
         else {
             dz += theta_z;  // going to the z adjacent cell
             (forward) ? cell[2] += 1 : cell[2] -= 1;
-            //std::cout << "distance from plane: " << thisPlane.absDistance(fuckingpoint + dir * dz) << std::endl;
+            std::cout << "distance from plane: " << thisPlane.absDistance(fpoint + dir * dz) << std::endl;
         }
-        //std::cout << cell[0] << cell[1] << cell[2] << std::endl;
+        std::cout << cell[0] << cell[1] << cell[2] << std::endl;
     }
 
     return;
@@ -366,5 +363,4 @@ void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &this
             thisPoints.push_back(indexes[i]);
     }
     comparisons += indexes.size();
-    //std::cout << comparisons << std::endl;
 }
