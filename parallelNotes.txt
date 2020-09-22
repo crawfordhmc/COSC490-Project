@@ -5,20 +5,20 @@ Solution could be to have a different parallel structure where cleary's rays are
 And then each cell has its points iterated through serially
 But then checking which cells have been already added parallely is a pain...
 
+Possible explanation for cleary's not working - planes BEYOND the bounding box not recognised
+This impacts RANSAC when the edge of the bounding box is comprised of many points
 
-TODO
-Run full model vector PC on the workstation on monday
-Don't bother with points 2 voxels away - they'll be borderline within the threshold anyway
-Find a way to retroactively see the last valid line point and ray point when the missing point alert is triggered (check progression)
-No padding errors noted so far
-Hashing errors don't seem to be occuring either
-Visited and empty checking is correct
+CODE
+test original maths version while vector pc is running
+profile uniform to see where the time is
+try different parallel location once other sections are written
+compare row orderings if time
 
 
 REPORT
-Get uniform space subdivision to a point where at least the performance is comparable
-Compare to show gains
-Explain difficulties: floating-point prescision and hashing errors, padding, getting correct vectors with varying axis
+Conclude on a trade-off where uniform space subdivision becomes more expensive
+Rewrite intro focussing on flow
+Leave conclusion for last
 
 
 PROFILING

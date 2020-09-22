@@ -116,12 +116,12 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 
 PointCloud::Point PointCloud::getPoint(size_t index) { return pc[index]; }
 void PointCloud::setPointPlane(size_t index, int planeID) { pc[index].planeIx = planeID; }
-void PointCloud::setPointColour(size_t index, Eigen::Vector3i colour) { pc[index].colour = colour; }
+void PointCloud::setPointColour(size_t index, const Eigen::Vector3i& colour) { pc[index].colour = colour; }
 
 
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
-std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPlane) {
+std::vector<size_t> PointCloud::planePoints(const Eigen::Hyperplane<double, 3>& thisPlane) {
 	std::vector<size_t> thisPoints;
 	//OpenMP requires signed integrals for its loop variables... interesting
 	signed long long i = 0;
@@ -138,7 +138,7 @@ std::vector<size_t> PointCloud::planePoints(Eigen::Hyperplane<double, 3> thisPla
 
 //Returns the line intersection of the given planes within the given bounding box, if any
 //args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
-Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
+Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(const Eigen::Hyperplane<double, 3>& p1, const Eigen::Hyperplane<double, 3>& p2,
 	double xs, double xl, double ys, double yl, double zs, double zl) {
 	// direction of the intersection line
 	Eigen::Vector3d vec = p1.normal().cross(p2.normal());
@@ -206,7 +206,7 @@ Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplan
 
 //Returns the line intersection of the given planes within the model's bounding box, if any
 //args: plane 1, plane 2, lower x boundary, upper x boundary, lower y boundary etc....
-Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2) {
+Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(const Eigen::Hyperplane<double, 3>& p1, const Eigen::Hyperplane<double, 3>& p2) {
 	return PointCloud::intersectPlanes(p1, p2, XS - threshold, XL + threshold, YS - threshold, YL + threshold, ZS - threshold, ZL + threshold);
 	//return PointCloud::intersectPlanes(p1, p2, XS, XL, YS, YL, ZS, ZL);
 

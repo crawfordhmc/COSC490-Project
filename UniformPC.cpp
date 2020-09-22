@@ -33,9 +33,9 @@ UniformPC::UniformPC(PointCloud const&p, int voxel_scale) : PointCloud(p) {
         else ZS -= 1, big = true;
     }
 
-    x_voxels = (int)(XL - XS) / voxel_size;
-    y_voxels = (int)(YL - YS) / voxel_size;
-    z_voxels = (int)(ZL - ZS) / voxel_size;
+    x_voxels = (size_t)(XL - XS) / voxel_size;
+    y_voxels = (size_t)(YL - YS) / voxel_size;
+    z_voxels = (size_t)(ZL - ZS) / voxel_size;
     limits = { x_voxels, y_voxels, z_voxels };
 
     edges = {
@@ -63,19 +63,18 @@ UniformPC::UniformPC(PointCloud const&p, int voxel_scale) : PointCloud(p) {
 
     std::cout << "Doing uniform space subdivision of " << x_voxels << " by " << y_voxels << " by " << z_voxels << " voxels..." << std::endl;
 
-    std::vector<size_t> cell;
     // for each point, hash their index in the vector into a cell
     signed long long i = 0;
-//#pragma omp parallel for
+#pragma omp parallel for
     for (i = 0; i < pc.size(); ++i) {
-        cell = hashCell(pc[i].location);
-//#pragma omp critical
+        std::vector<size_t> cell = hashCell(pc[i].location);
+#pragma omp critical
         cells[cell[0]][cell[1]][cell[2]].push_back(i);
     }
 }
 
 
-std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
+std::vector<size_t> UniformPC::hashCell(const Eigen::Vector3d& p) {
     size_t x = (p[0] - XS) / voxel_size;
     size_t y = (p[1] - YS) / voxel_size;
     size_t z = (p[2] - ZS) / voxel_size;
@@ -102,116 +101,294 @@ std::vector<size_t> UniformPC::hashCell(Eigen::Vector3d p) {
 }
 
 
-std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane) {
-
-    //get first edge intersection
-    int edge = 0;
-    Eigen::Vector3d p1 = edges[edge].intersectionPoint(thisPlane);
-    // while the found point is out of bounds find another
-    while (p1[0] < XS || p1[0] > XL || p1[1] < YS || p1[1] > YL || p1[2] < ZS || p1[2] > ZL)
-        p1 = edges[++edge].intersectionPoint(thisPlane);
-    //get second edge intersection
-    int edge2 = edge + 1;
-    Eigen::Vector3d p2 = edges[edge2].intersectionPoint(thisPlane);
-    //line to cast rays from
-    Eigen::ParametrizedLine<double, 3> start_line = Eigen::ParametrizedLine<double, 3>::Through(p1, p2);
-    Eigen::Vector3d norm = edges[edge].direction().cross(start_line.direction());
-    while (norm[0] != 0 || p2[0] < XS || p2[0] > XL || p2[1] < YS || p2[1] > YL || p2[2] < ZS || p2[2] > ZL) { //point is out of bounds
-        p2 = edges[++edge2].intersectionPoint(thisPlane);
-        start_line = Eigen::ParametrizedLine<double, 3>::Through(p1, p2);
-        norm = edges[edge].direction().cross(start_line.direction());
-    }
-    norm.normalize();
-    //make sure norm is oriented into the bounding box
-    if (abs(norm[1]) == 1 && (norm[1] + p1[1] < YS || norm[1] + p1[1] > YL)) norm[1] = -1 * norm[1];
-    else if (norm[2] + p1[2] < ZS || norm[2] + p1[2] > ZL) norm[2] = -1 * norm[2];
-
-    // these rays should be fixed in the x direction, and vary in the y and z directions to fit the plane
-    Eigen::Vector3d raydir = { 1, 0, 0 };
-    if (raydir.isApprox(thisPlane.normal()))
-        raydir = norm;
-    else
-        raydir = thisPlane.normal().cross(raydir);
-    raydir.normalize();
-    // make sure cross product is oriented into the bounding box (need to reverse the whole vector)
-    if ((norm[1] == 1 && raydir[1] < 0) || norm[1] == -1 && raydir[1] > 0) raydir = -raydir;
-    else if ((norm[2] == 1 && raydir[2] < 0) || norm[2] == -1 && raydir[2] > 0) raydir = -raydir;
-    double raytest = thisPlane.absDistance(p1 + raydir);
-
-    // indexes of points on the plane to be returned
+std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &thisPlane) {
     std::vector<size_t> indexes;
-    // 3D truth array of visited voxels
-    std::vector<std::vector<std::vector<bool>>> visited;
-    //idea - set all empty cells to visited?
-    visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
+    int d1, d2, d3;
 
-    // calculate exits?
-    std::vector<size_t> cell = hashCell(p1);
-    int yz = norm[1] == 0 ? 1 : 2;
-    bool right = start_line.direction()[0] > 0;
-    bool up = start_line.direction()[yz] > 0;
-
-    //absolute distance travelled in the y/z direction
-    double pyz = p1[yz] - (yz == 1 ? YS : ZS);
-    double theta_x = voxel_size / abs(start_line.direction()[0]);
-    // the x axis distance to the next cell (will be voxel_size if the lines does not have an x offset)
-    double next_x = right ? (cell[0] + 1) * voxel_size - (p1[0] - XS) : p1[0] - XS - cell[0] * voxel_size;
-    double dx = next_x / abs(start_line.direction()[0]);
-    double theta_yz = voxel_size / abs(start_line.direction()[yz]);
-    // the y/z axis distance to the next cell (will be voxel_size if the lines does not have an y/z offset)
-    double next_yz = (up ? (cell[yz] + 1) * voxel_size - pyz : pyz - cell[yz] * voxel_size);
-    double dyz = next_yz / abs(start_line.direction()[yz]);
-    //now change the distance to the next cell to reflect the ray direction
-    bool rayup = raydir[yz] > 0;
-    if ((up && !rayup) || (!up && rayup))
-        next_yz = voxel_size - next_yz;
-
-    std::cout << thisPlane.normal()[0] << thisPlane.normal()[1] << thisPlane.normal()[2] << ", d = " << thisPlane.coeffs()[3] << std::endl;
-    while (cell[0] < x_voxels && cell[yz] < limits[yz]) {
-        //pass the indexes to append to in place, the y or z intercept, the starting cell, the ray direction, the plane norm, 
-        //the visited array to edit in place and the plane to measure distance from
-        cleary(indexes, next_yz, cell, raydir, norm, visited, thisPlane, p1);
-        if (dx < dyz) {
-            (right) ? cell[0] += 1 : cell[0] -= 1;
-            dx += theta_x;
-            pyz = dx * abs(start_line.direction()[yz]);
-            next_yz = (rayup ? (cell[yz] + 1) * voxel_size - pyz : pyz - cell[yz] * voxel_size);
-            p1 = start_line.pointAt(dx);
-        }
-        else {
-            (up) ? cell[yz] += 1 : cell[yz] -= 1;
-            dyz += theta_yz;
-            pyz += voxel_size;
-            next_yz = voxel_size;
-            p1 = start_line.pointAt(dyz);
-        }
+    if (abs(thisPlane.coeffs()[0]) > abs(thisPlane.coeffs()[1]) && abs(thisPlane.coeffs()[0]) > abs(thisPlane.coeffs()[2])) {
+        d3 = 0;
+        d2 = 2;
+        d1 = 1;
+    }
+    else if (abs(thisPlane.coeffs()[1]) > abs(thisPlane.coeffs()[0]) && abs(thisPlane.coeffs()[1]) > abs(thisPlane.coeffs()[2])) {
+        d3 = 1;
+        d2 = 2;
+        d1 = 0;
+    }
+    else {
+        d3 = 2;
+        d2 = 1;
+        d1 = 0;
     }
 
+    Eigen::Vector3d minima = { XS, YS, ZS };
     signed long long i = 0;
-//#pragma omp parallel for
-        for (i = 0; i < remainingPoints.size(); ++i) {
-            if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold) {
-//#pragma omp critical
-                //indexes.push_back(remainingPoints[i]);
-                Eigen::Vector3d proj = thisPlane.projection(pc[remainingPoints[i]].location);
-                std::vector<size_t> loc = hashCell(pc[remainingPoints[i]].location);
-                std::vector<size_t> poc = hashCell(proj);
-                if (!visited[loc[0]][loc[1]][loc[2]]) {
-                    std::cout << loc[0] << loc[1] << loc[2] << " distance is " << thisPlane.absDistance(pc[remainingPoints[i]].location) << std::endl;
-                    std::cout << "projection " << poc[0] << poc[1] << poc[2] << ", covered: " << visited[poc[0]][poc[1]][poc[2]] << ", location is " << proj[0] << "/" << proj[1] << "/" << proj[2] << std::endl;
-                }
-            }
-        }
-    //comparisons += remainingPoints.size();
-    return indexes;
+    //std::cout << "new planey waney" << std::endl;
+#pragma omp parallel for
+    for (i = 0; i < limits[d1]; i++) {
 
+        Eigen::Vector3d point = minima;
+        size_t thread_comparisons = 0;
+        double d1_const = (-thisPlane.coeffs()[d1] * point[d1] - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
+        std::vector<size_t> cell = { 0, 0, 0 };
+        cell[d1] = i;
+
+        for (size_t j = 0; j < limits[d2]; j++) {
+
+            cell[d2] = j;
+            point[d1] = point[d1] + i * voxel_size;
+
+            Eigen::Vector3d dir = { 0, 0, 0 };
+            dir[d3] = 1;
+            Eigen::ParametrizedLine<double, 3> t1 = Eigen::ParametrizedLine<double, 3>(point, dir);
+            point[d1] += voxel_size;
+            Eigen::ParametrizedLine<double, 3> t2 = Eigen::ParametrizedLine<double, 3>(point, dir);
+            point[d2] += voxel_size;
+            Eigen::ParametrizedLine<double, 3> t4 = Eigen::ParametrizedLine<double, 3>(point, dir);
+            point[d1] -= voxel_size;
+            Eigen::ParametrizedLine<double, 3> t3 = Eigen::ParametrizedLine<double, 3>(point, dir);
+            point[d2] -= voxel_size;
+
+            double lower_lim = t1.intersectionPoint(thisPlane)[d3];//d1_const - (thisPlane.coeffs()[d2] * point[d2] / thisPlane.coeffs()[d3]);
+            lower_lim = std::min(lower_lim, t2.intersectionPoint(thisPlane)[d3]);
+            lower_lim = std::min(lower_lim, t3.intersectionPoint(thisPlane)[d3]);
+            lower_lim = std::min(lower_lim, t4.intersectionPoint(thisPlane)[d3]);
+            double upper_lim = t1.intersectionPoint(thisPlane)[d3];// lower_lim + threshold;
+            upper_lim = std::max(upper_lim, t2.intersectionPoint(thisPlane)[d3]);
+            upper_lim = std::max(upper_lim, t3.intersectionPoint(thisPlane)[d3]);
+            upper_lim = std::max(upper_lim, t4.intersectionPoint(thisPlane)[d3]);
+            lower_lim -= threshold;
+            upper_lim += threshold;
+            signed long long lower = (lower_lim - minima[d3]) / voxel_size;
+            signed long long upper = (upper_lim - minima[d3]) / voxel_size;
+
+            cell[d3] = std::max((long long) 0, lower);
+
+
+            while (cell[d3] < limits[d3] && cell[d3] <= upper) {
+                //std::cout << cell[0] << cell[1] << cell[2] << std::endl;
+                size_t olde = indexes.size();
+                for (size_t index = 0; index < cells[cell[0]][cell[1]][cell[2]].size(); index++) {
+                    if (thisPlane.absDistance(pc[ cells[cell[0]][cell[1]][cell[2]][index] ].location) < threshold
+                        && std::binary_search(remainingPoints.begin(), remainingPoints.end(), cells[cell[0]][cell[1]][cell[2]][index]))
+#pragma omp critical
+                        indexes.push_back(cells[cell[0]][cell[1]][cell[2]][index]);
+                }
+                //if (indexes.size() > olde) std::cout << cell[0] << cell[1] << cell[2] << std::endl;
+                thread_comparisons += cells[cell[0]][cell[1]][cell[2]].size();
+                cell[d3] += 1;
+
+            }
+            point[d2] += voxel_size;
+
+        }
+#pragma omp critical
+        comparisons += thread_comparisons;
+
+    }
+
+    //std::cout << "testy westy" << std::endl;
+    ////TESTY
+    //std::vector<size_t> thisPoints;
+    //for (size_t a = 0; a < x_voxels; a++) {
+    //    for (size_t b = 0; b < y_voxels; b++) {
+    //        for (size_t c = 0; c < z_voxels; c++) {
+    //            size_t old = thisPoints.size();
+    //            for (size_t ugh = 0; ugh < cells[a][b][c].size(); ugh++) {
+    //                if (thisPlane.absDistance(pc[ cells[a][b][c][ugh] ].location) < threshold && std::binary_search(remainingPoints.begin(), remainingPoints.end(), cells[a][b][c][ugh]))
+    //                    thisPoints.push_back(cells[a][b][c][ugh]);
+    //            }
+    //            if (thisPoints.size() > old) std::cout << a << b << c << ", " << thisPoints.size() - old << std::endl;
+    //        }
+    //    }
+    //}
+
+    //if (thisPoints.size() != indexes.size())
+    //    size_t wah = std::max(thisPoints.size(), indexes.size());
+    return indexes;
 }
 
 
-//Adds points in place within the threshold of a 2D ray in a 3D bounding box
-void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<size_t> cell, Eigen::Vector3d dir, Eigen::Vector3d norm,
-    std::vector<std::vector<std::vector<bool>>> &visited, Eigen::Hyperplane<double, 3> thisPlane, Eigen::Vector3d fpoint) {
+//std::vector<size_t> UniformPC::planePoints(Eigen::Hyperplane<double, 3> thisPlane) {
+//
+//    //get first edge intersection
+//    int edge = 0;
+//    Eigen::Vector3d p1 = edges[edge].intersectionPoint(thisPlane);
+//    // while the found point is out of bounds find another
+//    while (p1[0] < XS || p1[0] > XL || p1[1] < YS || p1[1] > YL || p1[2] < ZS || p1[2] > ZL)
+//        p1 = edges[++edge].intersectionPoint(thisPlane);
+//    //get second edge intersection
+//    int edge2 = edge + 1;
+//    Eigen::Vector3d p2 = edges[edge2].intersectionPoint(thisPlane);
+//    //line to cast rays from
+//    Eigen::ParametrizedLine<double, 3> start_line = Eigen::ParametrizedLine<double, 3>::Through(p1, p2);
+//    Eigen::Vector3d norm = edges[edge].direction().cross(start_line.direction());
+//    while (norm[0] != 0 || p2[0] < XS || p2[0] > XL || p2[1] < YS || p2[1] > YL || p2[2] < ZS || p2[2] > ZL) { //point is out of bounds
+//        p2 = edges[++edge2].intersectionPoint(thisPlane);
+//        start_line = Eigen::ParametrizedLine<double, 3>::Through(p1, p2);
+//        norm = edges[edge].direction().cross(start_line.direction());
+//    }
+//    norm.normalize();
+//    //make sure norm is oriented into the bounding box
+//    if (abs(norm[1]) == 1 && (norm[1] + p1[1] < YS || norm[1] + p1[1] > YL)) norm[1] = -1 * norm[1];
+//    else if (norm[2] + p1[2] < ZS || norm[2] + p1[2] > ZL) norm[2] = -1 * norm[2];
+//
+//    // these rays should be fixed in the x direction, and vary in the y and z directions to fit the plane
+//    Eigen::Vector3d raydir = { 1, 0, 0 };
+//    if (raydir.isApprox(thisPlane.normal()))
+//        raydir = norm;
+//    else
+//        raydir = thisPlane.normal().cross(raydir);
+//    raydir.normalize();
+//    // make sure cross product is oriented into the bounding box (need to reverse the whole vector)
+//    if ((norm[1] == 1 && raydir[1] < 0) || norm[1] == -1 && raydir[1] > 0) raydir = -raydir;
+//    else if ((norm[2] == 1 && raydir[2] < 0) || norm[2] == -1 && raydir[2] > 0) raydir = -raydir;
+//    double raytest = thisPlane.absDistance(p1 + raydir);
+//
+//    // indexes of points on the plane to be returned
+//    std::vector<size_t> indexes;
+//    // 3D truth array of visited voxels
+//    std::vector<std::vector<std::vector<bool>>> visited;
+//    //idea - set all empty cells to visited?
+//    visited = std::vector<std::vector<std::vector<bool>>>(x_voxels, std::vector<std::vector<bool>>(y_voxels, std::vector<bool>(z_voxels, false)));
+//
+//    // calculate exits?
+//    std::vector<size_t> cell = hashCell(p1);
+//    std::vector<size_t> cell2 = cell;
+//    int yz = norm[1] == 0 ? 1 : 2;
+//    int padding_dir = abs(start_line.direction()[0]) < abs(start_line.direction()[yz]) ? 0 : yz;
+//    bool right = start_line.direction()[0] > 0;
+//    bool up = start_line.direction()[yz] > 0;
+//
+//    //absolute distance travelled in the y/z direction
+//    double pyz = p1[yz] - (yz == 1 ? YS : ZS);
+//    double theta_x = voxel_size / abs(start_line.direction()[0]);
+//    // the x axis distance to the next cell (will be voxel_size if the lines does not have an x offset)
+//    double next_x = right ? (cell[0] + 1) * voxel_size - (p1[0] - XS) : p1[0] - XS - cell[0] * voxel_size;
+//    double dx = next_x / abs(start_line.direction()[0]);
+//    double theta_yz = voxel_size / abs(start_line.direction()[yz]);
+//    // the y/z axis distance to the next cell (will be voxel_size if the lines does not have an y/z offset)
+//    double next_yz = (up ? (cell[yz] + 1) * voxel_size - pyz : pyz - cell[yz] * voxel_size);
+//    double dyz = next_yz / abs(start_line.direction()[yz]);
+//    //now change the distance to the next cell to reflect the ray direction
+//    bool rayup = raydir[yz] > 0;
+//    if ((up && !rayup) || (!up && rayup))
+//        next_yz = voxel_size - next_yz;
+//
+//    //pad other direction of first cell
+//    if (padding_dir == 1) {
+//        if (right && cell[0] > 0) cell2[0] -= 1;
+//        else if (cell[0] < x_voxels - 1) cell2[0] += 1;
+//    }
+//    else {
+//        if (up && cell[yz] > 0) cell2[yz] -= 1;
+//        else if (cell[yz] < limits[yz] - 1) cell2[yz] += 1;
+//    }
+//    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//
+//    std::cout << thisPlane.normal()[0] << thisPlane.normal()[1] << thisPlane.normal()[2] << ", d = " << thisPlane.coeffs()[3] << std::endl;
+//    while (cell[0] < x_voxels && cell[yz] < limits[yz]) {
+//        //pass the indexes to append to in place, the y or z intercept, the starting cell, the ray direction, the plane norm, 
+//        //the visited array to edit in place and the plane to measure distance from
+//        cleary(indexes, next_yz, cell, raydir, norm, visited, thisPlane, p1);
+//        if (dx < dyz) {
+//            //pad adjacent voxels
+//            if (padding_dir != 0) {
+//                //pad both yz cells
+//                if (cell[yz] > 0) {
+//                    cell2[yz] -= 1;
+//                    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//                }
+//                if (cell[yz] < limits[yz] - 1) {
+//                    cell2[yz] += 1;
+//                    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//                }
+//            }
+//            else {
+//                //only pad x cell behind
+//                if (right && cell[0] > 0) {
+//                    cell2[0] -= 1;
+//                    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//                }
+//                else if (cell[0] < x_voxels - 1){
+//                    cell2[0] += 1;
+//                    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//                }
+//            }
+//            (right) ? cell[0] += 1 : cell[0] -= 1;
+//            dx += theta_x;
+//            pyz = dx * abs(start_line.direction()[yz]);
+//            next_yz = (rayup ? (cell[yz] + 1) * voxel_size - pyz : pyz - cell[yz] * voxel_size);
+//            p1 = start_line.pointAt(dx);
+//        }
+//        else {
+//            //pad adjacent voxels
+//            if (padding_dir != yz) {
+//                //pad both x cells
+//                if (cell[0] > 0) {
+//                    cell2[0] -= 1;
+//                    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//                }
+//                if (cell[0] < limits[yz] - 1) {
+//                    cell2[0] += 1;
+//                    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//                }
+//            }
+//            else {
+//                //only pad yz cell behind
+//                if (up && cell[yz] > 0) {
+//                    cell2[yz] -= 1;
+//                    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//                }
+//                else if (cell[yz] < limits[yz] - 1) {
+//                    cell2[yz] += 1;
+//                    cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//                }
+//            }
+//            (up) ? cell[yz] += 1 : cell[yz] -= 1;
+//            dyz += theta_yz;
+//            pyz += voxel_size;
+//            next_yz = voxel_size;
+//            p1 = start_line.pointAt(dyz);
+//        }
+//        cell2 = cell;
+//    }
+//    //pad normally from outside the box if padding direction limit has been reached
+//    if (padding_dir == 0 && cell[yz] < limits[yz]) {
+//        (right) ? cell[0] -= 1 : cell[0] += 1;
+//        cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//    }
+//    else if (cell[0] < x_voxels) {
+//        (up) ? cell[yz] -= 1 : cell[yz] += 1;
+//        cleary(indexes, next_yz, cell2, raydir, norm, visited, thisPlane, p1);
+//    }
+//
+//    signed long long i = 0;
+////#pragma omp parallel for
+//        for (i = 0; i < remainingPoints.size(); ++i) {
+//            if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold) {
+////#pragma omp critical
+//                //indexes.push_back(remainingPoints[i]);
+//                Eigen::Vector3d proj = thisPlane.projection(pc[remainingPoints[i]].location);
+//                std::vector<size_t> loc = hashCell(pc[remainingPoints[i]].location);
+//                std::vector<size_t> poc = hashCell(proj);
+//                if (!visited[loc[0]][loc[1]][loc[2]]) {
+//                    std::cout << loc[0] << loc[1] << loc[2] << " distance is " << thisPlane.absDistance(pc[remainingPoints[i]].location) << std::endl;
+//                    //std::cout << "projection " << poc[0] << poc[1] << poc[2] << ", covered: " << visited[poc[0]][poc[1]][poc[2]] << ", location is " << proj[0] << "/" << proj[1] << "/" << proj[2] << std::endl;
+//                }
+//            }
+//        }
+//    //comparisons += remainingPoints.size();
+//    return indexes;
+//
+//}
 
+
+//Adds points in place within the threshold of a 2D ray in a 3D bounding box
+void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<size_t> cell, const Eigen::Vector3d& dir, const Eigen::Vector3d& norm,
+    std::vector<std::vector<std::vector<bool>>>& visited, Eigen::Hyperplane<double, 3> thisPlane, Eigen::Vector3d fpoint) {
+
+    int padding_dir = abs(dir[1]) < abs(dir[2]) ? 1 : 2;
     double theta_y, theta_z, dy, dz;
     theta_y = voxel_size / abs(dir[1]);
     theta_z = voxel_size / abs(dir[2]);
@@ -225,104 +402,45 @@ void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<
     }
     bool up = dir[1] > 0;
     bool forward = dir[2] > 0;
-    bool right = cell[0] < x_voxels - 1;
-    bool left = cell[0] > 0;
     size_t y = 0;
     size_t z = 0;
 
-    //check the first cell (might already be visited due to previous rays)
-    if (!visited[cell[0]][cell[1]][cell[2]]) {
-        if (!cells[cell[0]][cell[1]][cell[2]].empty()) //push thresholded points from cell onto points vector
-            addPoints(cells[cell[0]][cell[1]][cell[2]], points, thisPlane);
-        visited[cell[0]][cell[1]][cell[2]] = true;
-        padX(cell[0], cell[1], cell[2], points, visited, thisPlane, left, right);
-    }
     std::cout << "start of ray:" << std::endl;
     
     // the >= 0 check isn't needed because a size_t will simply overflow to greater than the limit when negative anyway!
     while (cell[1] < y_voxels && cell[2] < z_voxels) {
-        //note that due to the adjacent cell checking getting ahead of itself, actually checking the current cell is not needed.
-        //z negative
-        if (cell[2] > 0) {
-            z = cell[2] - 1;
-            if (!visited[cell[0]][cell[1]][z]) {
-                if (!cells[cell[0]][cell[1]][z].empty())
-                    addPoints(cells[cell[0]][cell[1]][z], points, thisPlane);
-                visited[cell[0]][cell[1]][z] = true;
-            }
-            padX(cell[0], cell[1], z, points, visited, thisPlane, left, right);
-            ////visit the diagonal cells
-            if (cell[1] > 0) {
-                if (!visited[cell[0]][cell[1] - 1][z]) {
-                    if (!cells[cell[0]][cell[1] - 1][z].empty())
-                        addPoints(cells[cell[0]][cell[1] - 1][z], points, thisPlane);
-                    visited[cell[0]][cell[1] - 1][z] = true;
-                    padX(cell[0], cell[1] - 1, z, points, visited, thisPlane, left, right);
-                }
-            }
-            if (cell[1] < y_voxels - 1) {
-                if (!visited[cell[0]][cell[1] + 1][z]) {
-                    if (!cells[cell[0]][cell[1] + 1][z].empty())
-                        addPoints(cells[cell[0]][cell[1] + 1][z], points, thisPlane);
-                    visited[cell[0]][cell[1] + 1][z] = true;
-                    padX(cell[0], cell[1] + 1, z, points, visited, thisPlane, left, right);
-                }
-            }
-        } //z positive
-        if (cell[2] < z_voxels - 1) {
-            z = cell[2] + 1;
-            if (!visited[cell[0]][cell[1]][z]) {
-                if (!cells[cell[0]][cell[1]][z].empty())
-                    addPoints(cells[cell[0]][cell[1]][z], points, thisPlane);
-                visited[cell[0]][cell[1]][z] = true;
-            }
-            padX(cell[0], cell[1], z, points, visited, thisPlane, left, right);
-            ////visit the diagonal cells
-            if (cell[1] > 0) {
-                if (visited[cell[0]][cell[1] - 1][z]) {
-                    if (!cells[cell[0]][cell[1] - 1][z].empty())
-                        addPoints(cells[cell[0]][cell[1] - 1][z], points, thisPlane);
-                    visited[cell[0]][cell[1] - 1][z] = true;
-                    padX(cell[0], cell[1] - 1, z, points, visited, thisPlane, left, right);
-                }
-            }
-            if (cell[1] < y_voxels - 1) {
-                if (!visited[cell[0]][cell[1] + 1][z]) {
-                    if (!cells[cell[0]][cell[1] + 1][z].empty())
-                        addPoints(cells[cell[0]][cell[1] + 1][z], points, thisPlane);
-                    visited[cell[0]][cell[1] + 1][z] = true;
-                    padX(cell[0], cell[1] + 1, z, points, visited, thisPlane, left, right);
-                }
-            }
-        }
-        //y negative
-        if (cell[1] > 0) {
-            y = cell[1] - 1;
-            if (!visited[cell[0]][y][cell[2]]) {
-                if (!cells[cell[0]][y][cell[2]].empty())
-                    addPoints(cells[cell[0]][y][cell[2]], points, thisPlane);
-                visited[cell[0]][y][cell[2]] = true;
-            }
-            padX(cell[0], y, cell[2], points, visited, thisPlane, left, right);
-        } //y positive
-        if (cell[1] < y_voxels - 1) {
-            y = cell[1] + 1;
-            if (!visited[cell[0]][y][cell[2]]) {
-                if (!cells[cell[0]][y][cell[2]].empty())
-                    addPoints(cells[cell[0]][y][cell[2]], points, thisPlane);
-                visited[cell[0]][y][cell[2]] = true;
-            }
-            padX(cell[0], y, cell[2], points, visited, thisPlane, left, right);
-        }
-
+        //check the current cell
+        checkcell(cell[0], cell[1], cell[2], points, visited, thisPlane);
         //work out next cell
         if (dy < dz) {
             dy += theta_y;  // going to the y adjacent cell
+            //pad adjacent voxels
+            if (padding_dir == 2) {
+                //pad both z cells
+                if (cell[2] > 0) checkcell(cell[0], cell[1], cell[2] - 1, points, visited, thisPlane);
+                if (cell[2] < z_voxels - 1) checkcell(cell[0], cell[1], cell[2] + 1, points, visited, thisPlane);
+            }
+            else {
+                //only pad y cell behind
+                if (up && cell[1] > 0) checkcell(cell[0], cell[1] - 1, cell[2], points, visited, thisPlane);
+                else if (cell[1] < y_voxels - 1) checkcell(cell[0], cell[1] + 1, cell[2], points, visited, thisPlane);
+            }
             (up) ? cell[1] += 1 : cell[1] -= 1;
             std::cout << "distance from plane: " << thisPlane.absDistance(fpoint + dir * dy) << std::endl;
         }
         else {
             dz += theta_z;  // going to the z adjacent cell
+            //pad adjacent voxels
+            if (padding_dir == 1) {
+                //pad both y cells
+                if (cell[1] > 0) checkcell(cell[0], cell[1] - 1, cell[2], points, visited, thisPlane);
+                if (cell[1] < y_voxels - 1) checkcell(cell[0], cell[1] + 1, cell[2], points, visited, thisPlane);
+            }
+            else {
+                //only pad z cell behind
+                if (forward && cell[2] > 0) checkcell(cell[0], cell[1], cell[2] - 1, points, visited, thisPlane);
+                else if (cell[2] < z_voxels - 1) checkcell(cell[0], cell[1], cell[2] + 1, points, visited, thisPlane);
+            }
             (forward) ? cell[2] += 1 : cell[2] -= 1;
             std::cout << "distance from plane: " << thisPlane.absDistance(fpoint + dir * dz) << std::endl;
         }
@@ -333,26 +451,18 @@ void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<
 }
 
 
-void UniformPC::padX(size_t x, size_t y, size_t z, std::vector<size_t>& points, std::vector<std::vector<std::vector<bool>>>& visited, 
-    Eigen::Hyperplane<double, 3> thisPlane, bool left, bool right) {
-    if (left) {
-        if (!visited[x - 1][y][z]) {
-            if (!cells[x - 1][y][z].empty())
-                addPoints(cells[x - 1][y][z], points, thisPlane);
-            visited[x - 1][y][z] = true;
-        }
-    }
-    if (right) {
-        if (!visited[x + 1][y][z]) {
-            if (!cells[x + 1][y][z].empty())
-                addPoints(cells[x + 1][y][z], points, thisPlane);
-            visited[x + 1][y][z] = true;
-        }
+void UniformPC::checkcell(size_t x, size_t y, size_t z, std::vector<size_t>& points, std::vector<std::vector<std::vector<bool>>>& visited,
+    const Eigen::Hyperplane<double, 3>& thisPlane) {
+    if (!visited[x][y][z]) {
+        if (!cells[x][y][z].empty()) //push thresholded points from cell onto points vector
+            addPoints(cells[x][y][z], points, thisPlane);
+        visited[x][y][z] = true;
     }
 }
 
 
-void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &thisPoints, Eigen::Hyperplane<double, 3> thisPlane) {
+void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t>& thisPoints,
+    const Eigen::Hyperplane<double, 3>& thisPlane) {
     
     //OpenMP requires signed integrals for its loop variables... interesting
     signed long long i = 0;

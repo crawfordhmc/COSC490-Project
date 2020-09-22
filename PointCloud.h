@@ -27,16 +27,16 @@ public:
 
 	PointCloud(const std::string& filepath, float scale_parameter);
 
-	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2,
+	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(const Eigen::Hyperplane<double, 3> &p1, const Eigen::Hyperplane<double, 3> &p2,
 		double xs, double xl, double ys, double yl, double zs, double zl);
 
-	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(Eigen::Hyperplane<double, 3> p1, Eigen::Hyperplane<double, 3> p2);
+	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(const Eigen::Hyperplane<double, 3> &p1, const Eigen::Hyperplane<double, 3> &p2);
 
-	virtual std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane);
+	virtual std::vector<size_t> planePoints(const Eigen::Hyperplane<double, 3> &thisPlane);
 
 	Point getPoint(size_t index);
 	void setPointPlane(size_t index, int planeID);
-	void setPointColour(size_t index, Eigen::Vector3i colour);
+	void setPointColour(size_t index, const Eigen::Vector3i &colour);
 	void writeToPly(const std::string& filename);
 
 protected:
