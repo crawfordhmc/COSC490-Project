@@ -129,41 +129,35 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
         Eigen::Vector3d point = minima;
         size_t thread_comparisons = 0;
-        double d1_const = (-thisPlane.coeffs()[d1] * point[d1] - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
+        double d1_min = (-thisPlane.coeffs()[d1] * point[d1] - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
+        double d1_max = (-thisPlane.coeffs()[d1] * (point[d1] + voxel_size) - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
         std::vector<size_t> cell = { 0, 0, 0 };
         cell[d1] = i;
+
+        //d3 location of the plane in 4 corners of the voxel
+        double t1 = d1_min - (thisPlane.coeffs()[d2] * point[d2] / thisPlane.coeffs()[d3]); //bottom left corner
+        double t2 = d1_max - (thisPlane.coeffs()[d2] * point[d2] / thisPlane.coeffs()[d3]); //+ d1
+        double t3 = t1 - voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3]; // + d2
+        double t4 = t2 - voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3]; // + d1 and d2
 
         for (size_t j = 0; j < limits[d2]; j++) {
 
             cell[d2] = j;
             point[d1] = point[d1] + i * voxel_size;
 
-            Eigen::Vector3d dir = { 0, 0, 0 };
-            dir[d3] = 1;
-            Eigen::ParametrizedLine<double, 3> t1 = Eigen::ParametrizedLine<double, 3>(point, dir);
-            point[d1] += voxel_size;
-            Eigen::ParametrizedLine<double, 3> t2 = Eigen::ParametrizedLine<double, 3>(point, dir);
-            point[d2] += voxel_size;
-            Eigen::ParametrizedLine<double, 3> t4 = Eigen::ParametrizedLine<double, 3>(point, dir);
-            point[d1] -= voxel_size;
-            Eigen::ParametrizedLine<double, 3> t3 = Eigen::ParametrizedLine<double, 3>(point, dir);
-            point[d2] -= voxel_size;
+            double lower_lim = std::min(t1, t2);
+            lower_lim = std::min(lower_lim, t3);
+            lower_lim = std::min(lower_lim, t4);
+            double upper_lim = std::max(t1, t2);
+            upper_lim = std::max(upper_lim, t3);
+            upper_lim = std::max(upper_lim, t4);
 
-            double lower_lim = t1.intersectionPoint(thisPlane)[d3];//d1_const - (thisPlane.coeffs()[d2] * point[d2] / thisPlane.coeffs()[d3]);
-            lower_lim = std::min(lower_lim, t2.intersectionPoint(thisPlane)[d3]);
-            lower_lim = std::min(lower_lim, t3.intersectionPoint(thisPlane)[d3]);
-            lower_lim = std::min(lower_lim, t4.intersectionPoint(thisPlane)[d3]);
-            double upper_lim = t1.intersectionPoint(thisPlane)[d3];// lower_lim + threshold;
-            upper_lim = std::max(upper_lim, t2.intersectionPoint(thisPlane)[d3]);
-            upper_lim = std::max(upper_lim, t3.intersectionPoint(thisPlane)[d3]);
-            upper_lim = std::max(upper_lim, t4.intersectionPoint(thisPlane)[d3]);
             lower_lim -= threshold;
             upper_lim += threshold;
-            signed long long lower = (lower_lim - minima[d3]) / voxel_size;
-            signed long long upper = (upper_lim - minima[d3]) / voxel_size;
+            signed long long lower = (lower_lim - minima[d3]) / voxel_size - 1;
+            signed long long upper = (upper_lim - minima[d3]) / voxel_size + 1;
 
             cell[d3] = std::max((long long) 0, lower);
-
 
             while (cell[d3] < limits[d3] && cell[d3] <= upper) {
                 //std::cout << cell[0] << cell[1] << cell[2] << std::endl;
@@ -180,6 +174,10 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
             }
             point[d2] += voxel_size;
+            t1 = t3;
+            t2 = t4;
+            t3 = t1 - voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
+            t4 = t2 - voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
 
         }
 #pragma omp critical
@@ -188,7 +186,7 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
     }
 
     //std::cout << "testy westy" << std::endl;
-    ////TESTY
+    ////testy
     //std::vector<size_t> thisPoints;
     //for (size_t a = 0; a < x_voxels; a++) {
     //    for (size_t b = 0; b < y_voxels; b++) {
