@@ -7,11 +7,12 @@
 using namespace tinyply;
 
 
-PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
+PointCloud::PointCloud(const std::string& filepath, float scale_parameter, unsigned int threads) {
 	std::cout << "........................................................................\n";
 	std::cout << "Now Reading: " << filepath << std::endl;
 	std::unique_ptr<std::istream> file_stream;
 	std::vector<uint8_t> byte_buffer;
+	num_threads = threads;
 
 	try
 		{
@@ -84,7 +85,7 @@ PointCloud::PointCloud(const std::string& filepath, float scale_parameter) {
 			remainingPoints[i] = i;
 			if (omp_get_thread_num() == 0) threads = omp_get_num_threads();
 		}
-		std::cout << threads << " threads being used" << std::endl;
+		std::cout << threads << " threads being used" << std::endl; //unspecified to help see the max number of threads
 
 		XS = pc[0].location[0];
 		XL = pc[0].location[0];
@@ -125,7 +126,7 @@ std::vector<size_t> PointCloud::planePoints(const Eigen::Hyperplane<double, 3>& 
 	std::vector<size_t> thisPoints;
 	//OpenMP requires signed integrals for its loop variables... interesting
 	signed long long i = 0;
-#pragma omp parallel for shared(thisPoints) private (i) num_threads(4) //CHANGE THIS
+#pragma omp parallel for shared(thisPoints) private (i) num_threads(num_threads)
 	for (i = 0; i < remainingPoints.size(); ++i) {
 		if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold)
 #pragma omp critical
@@ -163,8 +164,18 @@ void PointCloud::removePoints(std::vector<size_t> &planePoints, int plane) {
 	remainingPoints = diff;
 
 	signed long long j = 0;
-#pragma omp parallel for
+#pragma omp parallel for num_threads(num_threads)
 	for (j = 0; j < planePoints.size(); ++j) {
 		setPointPlane(planePoints[j], plane);
+	}
+}
+
+void PointCloud::resetRemaining() {
+	remainingPoints.resize(size);
+	comparisons = 0;
+	signed long long i = 0;
+#pragma omp parallel for num_threads(num_threads)
+	for (i = 0; i < size; ++i) {
+		remainingPoints[i] = i;
 	}
 }

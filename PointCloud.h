@@ -24,8 +24,9 @@ public:
 	double threshold;
 	std::vector<size_t> remainingPoints;
 	size_t comparisons = 0;
+	unsigned int num_threads = 1;
 
-	PointCloud(const std::string& filepath, float scale_parameter);
+	PointCloud(const std::string& filepath, float scale_parameter, unsigned int threads);
 
 	virtual std::vector<size_t> planePoints(const Eigen::Hyperplane<double, 3> &thisPlane);
 
@@ -33,6 +34,7 @@ public:
 	void setPointPlane(size_t index, int planeID);
 	void setPointColour(size_t index, const Eigen::Vector3i &colour);
 	void writeToPly(const std::string& filename);
+	void resetRemaining();
 
 	virtual void removePoints(std::vector<size_t>& planePoints, int plane);
 

@@ -79,7 +79,7 @@ void recolor(PointCloud pointCloud, std::string outputFile, std::vector<Eigen::V
     // Recolour points according to their plane then save the results
     std::cout << "Writing points to " << outputFile << std::endl;
     signed long long val = 0;
-#pragma omp parallel for
+#pragma omp parallel for num_threads(pointCloud.num_threads)
     for (val = 0; val < pointCloud.size; ++val) {
         if (pointCloud.getPoint(val).planeIx >= 0) {
             pointCloud.setPointColour(val, colours[pointCloud.getPoint(val).planeIx % colours.size()]);
@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
     float threshold = -1;
     int maxTrials = 1000;
     float scale_parameter = 0.01;
-    int voxel_size;
+    int voxel_size = 0;
 
     // Parse the command line
     if (argc < 7 || argc > 8) {
@@ -129,7 +129,10 @@ int main(int argc, char* argv[]) {
 
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
-    PointCloud pointCloud = PointCloud(inputFile, scale_parameter);
+    //SET NUM THREADS HERE
+    unsigned int threads = 4;
+
+    PointCloud pointCloud = PointCloud(inputFile, scale_parameter, threads);
     // Checking if number of points is too big for signed long long type
     if (pointCloud.size > LLONG_MAX) {
         std::cout << "Model is too big - reduce points to " << LLONG_MAX << " or less" << std::endl;
@@ -146,18 +149,26 @@ int main(int argc, char* argv[]) {
         UniformPC u = UniformPC(pointCloud, voxel_size);
         // 5 runs for ransac average time
         ransac(u, gen, success, noise, threshold, maxTrials);
+        u.resetRemaining();
         ransac(u, gen, success, noise, threshold, maxTrials);
+        u.resetRemaining();
         ransac(u, gen, success, noise, threshold, maxTrials);
+        u.resetRemaining();
         ransac(u, gen, success, noise, threshold, maxTrials);
+        u.resetRemaining();
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(u, gen, success, noise, threshold, maxTrials);
         std::cout << "Total point distance calculations made: " << u.comparisons << std::endl;
         recolor(u, outputFile, colours);
     }
     else {
         ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+        pointCloud.resetRemaining();
         ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+        pointCloud.resetRemaining();
         ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+        pointCloud.resetRemaining();
         ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+        pointCloud.resetRemaining();
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, noise, threshold, maxTrials);
         std::cout << "Total point distance calculations made: " << pointCloud.comparisons << std::endl;
         recolor(pointCloud, outputFile, colours);

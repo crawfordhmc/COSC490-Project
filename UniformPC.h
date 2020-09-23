@@ -14,8 +14,6 @@ public:
     UniformPC(PointCloud const&p, int voxel_scale);
 
     std::vector<size_t> planePoints(const Eigen::Hyperplane<double, 3> &thisPlane);
-    //std::vector<size_t> planePoints(Eigen::Hyperplane<double, 3> thisPlane);
-    //void removePoints(std::vector<size_t>& planePoints, int plane);
 
 protected:
 
