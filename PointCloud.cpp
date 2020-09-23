@@ -154,3 +154,17 @@ void PointCloud::writeToPly(const std::string& filename) {
 	}
 	fout.close();
 }
+
+void PointCloud::removePoints(std::vector<size_t> &planePoints, int plane) {
+	std::vector<size_t> diff;
+	std::sort(planePoints.begin(), planePoints.end());
+	std::set_difference(remainingPoints.begin(), remainingPoints.end(), 
+		planePoints.begin(), planePoints.end(), std::inserter(diff, diff.begin()));
+	remainingPoints = diff;
+
+	signed long long j = 0;
+#pragma omp parallel for
+	for (j = 0; j < planePoints.size(); ++j) {
+		setPointPlane(planePoints[j], plane);
+	}
+}
