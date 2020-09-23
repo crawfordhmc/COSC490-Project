@@ -27,11 +27,6 @@ public:
 
 	PointCloud(const std::string& filepath, float scale_parameter);
 
-	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(const Eigen::Hyperplane<double, 3> &p1, const Eigen::Hyperplane<double, 3> &p2,
-		double xs, double xl, double ys, double yl, double zs, double zl);
-
-	Eigen::ParametrizedLine<double, 3>* PointCloud::intersectPlanes(const Eigen::Hyperplane<double, 3> &p1, const Eigen::Hyperplane<double, 3> &p2);
-
 	virtual std::vector<size_t> planePoints(const Eigen::Hyperplane<double, 3> &thisPlane);
 
 	Point getPoint(size_t index);
@@ -44,9 +39,6 @@ protected:
 	std::vector<Eigen::Matrix<uint8_t, 3, 1>> cols;
 
 	std::vector<Point> pc;
-	// interesting point here - a unique_pointer can make a fixed but dynamic array when we know we won't be expanding after creation
-	// could improve memory usage
-	// auto ints = std::make_unique<int[]>(10);
 
 	// bounding box corners
 	double XS;
@@ -55,8 +47,6 @@ protected:
 	double YL;
 	double ZS;
 	double ZL;
-
-	std::vector<Eigen::ParametrizedLine<double, 3>> edges;
 };
 
 #endif

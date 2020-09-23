@@ -25,14 +25,5 @@ protected:
 
     std::vector<size_t> hashCell(const Eigen::Vector3d &p);
 
-    void UniformPC::cleary(std::vector<size_t>& points, double next_yz, std::vector<size_t> cell, const Eigen::Vector3d &dir, const Eigen::Vector3d &norm,
-        std::vector<std::vector<std::vector<bool>>>& visited, Eigen::Hyperplane<double, 3> thisPlane, Eigen::Vector3d fpoint);
-
-    void UniformPC::checkcell(size_t x, size_t y, size_t z, std::vector<size_t>& points, std::vector<std::vector<std::vector<bool>>>& visited,
-        const Eigen::Hyperplane<double, 3> &thisPlane);
-
-    void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t> &thisPoints,
-        const Eigen::Hyperplane<double, 3> &thisPlane);
-
 };
 #endif

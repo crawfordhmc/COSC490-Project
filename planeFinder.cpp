@@ -24,11 +24,6 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
     unsigned int plane = 0;
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
-    //TEST
-
-    Eigen::Hyperplane<double, 3> test = Eigen::Hyperplane<double, 3>({ -0.70629504541258814, -0.69361936145902703, 0.14156090644949124 }, 3.5427458039815303);
-    std::vector<size_t> testy = pointCloud.planePoints(test);
-
     do {
         // Initial number of trials, very high from lowball initial inlier ratio
         double inlierRatio = 0.01;
@@ -166,26 +161,3 @@ int main(int argc, char* argv[]) {
         recolor(pointCloud, outputFile, colours);
     }
 }
-
-//    if (true) { //fix for structure
-//        for (int p1 = 0; p1 < planes.size(); p1++) {
-//            for (int p2 = 0; p2 < planes.size(); p2++) {
-//                if (p1 == p2) continue; 
-//                Eigen::ParametrizedLine<double, 3> *intersection = pointCloud->intersectPlanes(planes[p1], planes[p2]);
-//                if (intersection == NULL) continue;
-//                signed long long i = 0;
-//#pragma omp parallel for
-//                for (i = 0; i < pointCloud.size; ++i) {
-//                    if (intersection->distance(pointCloud->getPoint(i).location) > threshold) continue;
-//                    if (pointCloud->getPoint(i).planeIx == p1 && planes[p2].absDistance(pointCloud->getPoint(i).location) < planes[p1].absDistance(pointCloud.getPoint(i).location)) {
-//                        pointCloud->setPointPlane(i, p2);
-//                        std::cout << "reassigned some pointy bois" << std::endl;
-//                    }
-//                    if (pointCloud->getPoint(i).planeIx == p2 && planes[p1].absDistance(pointCloud.getPoint(i).location) < planes[p2].absDistance(pointCloud.getPoint(i).location)) {
-//                        pointCloud.setPointPlane(i, p1);
-//                        std::cout << "reassigned some pointy bois" << std::endl;
-//                    }
-//                }
-//            }
-//        }
-//    }
