@@ -39,6 +39,8 @@ public:
 	void setPointColour(size_t index, const Eigen::Vector3i &colour);
 	void writeToPly(const std::string& filename);
 
+	virtual void removePoints(std::vector<size_t>& planePoints, int plane);
+
 protected:
 	std::vector<Eigen::Vector3f> verts;
 	std::vector<Eigen::Matrix<uint8_t, 3, 1>> cols;

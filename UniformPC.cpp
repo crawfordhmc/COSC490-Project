@@ -71,6 +71,15 @@ UniformPC::UniformPC(PointCloud const&p, int voxel_scale) : PointCloud(p) {
 #pragma omp critical
         cells[cell[0]][cell[1]][cell[2]].push_back(i);
     }
+
+    //sort the indexes of the populated cells
+    for (size_t a = 0; a < x_voxels; ++a) {
+        for (size_t b = 0; b < y_voxels; ++b) {
+            for (size_t c = 0; c < z_voxels; ++c) {
+                if (cells[a][b][c].size() > 1) std::sort(cells[a][b][c].begin(), cells[a][b][c].end());
+            }
+        }
+    }
 }
 
 
@@ -159,12 +168,16 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
             cell[d3] = std::max((long long) 0, lower);
 
-            while (cell[d3] < limits[d3] && cell[d3] <= upper) {
+            while (cell[d3] < limits[d3] && (signed long long) cell[d3] <= upper) {
                 //std::cout << cell[0] << cell[1] << cell[2] << std::endl;
                 size_t olde = indexes.size();
+                //initialize iterator to progress during the for loop
+                std::vector<size_t>::iterator remain = remainingPoints.begin();
                 for (size_t index = 0; index < cells[cell[0]][cell[1]][cell[2]].size(); index++) {
+                    // find point in remainingPoints vector
+                    remain = std::lower_bound(remain, remainingPoints.end(), cells[cell[0]][cell[1]][cell[2]][index]);
                     if (thisPlane.absDistance(pc[ cells[cell[0]][cell[1]][cell[2]][index] ].location) < threshold
-                        && std::binary_search(remainingPoints.begin(), remainingPoints.end(), cells[cell[0]][cell[1]][cell[2]][index]))
+                        && remain != remainingPoints.end())
 #pragma omp critical
                         indexes.push_back(cells[cell[0]][cell[1]][cell[2]][index]);
                 }
@@ -472,3 +485,17 @@ void UniformPC::addPoints(std::vector<size_t> indexes, std::vector<size_t>& this
     }
     comparisons += indexes.size();
 }
+
+//void UniformPC::removePoints(std::vector<size_t>& planePoints, int plane) {
+//    signed long long i = 0;
+//#pragma omp parallel for
+//    for (i = 0; i < x_voxels; ++i) {
+//        for (size_t j = 0; j < y_voxels; ++j) {
+//            for (size_t k = 0; k < z_voxels; ++k) {
+//                
+//            }
+//        }
+//        std::vector<size_t> cell = hashCell(pc[planePoints[i]].location);
+//        std::vector<size_t>::iterator spot = std::lower_bound(cells[cell[0]][cell[1]][cell[2]].begin(), cells[cell[0]][cell[1]][cell[2]].end())
+//    }
+//}
