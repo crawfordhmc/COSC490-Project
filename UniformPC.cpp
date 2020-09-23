@@ -88,7 +88,7 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
     Eigen::Vector3d minima = { XS, YS, ZS };
     signed long long i = 0;
-#pragma omp parallel for
+#pragma omp parallel for num_threads(4) //CHANGE THIS
     for (i = 0; i < limits[d1]; i++) {
 
         Eigen::Vector3d point = minima;

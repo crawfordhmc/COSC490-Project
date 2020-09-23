@@ -125,7 +125,7 @@ std::vector<size_t> PointCloud::planePoints(const Eigen::Hyperplane<double, 3>& 
 	std::vector<size_t> thisPoints;
 	//OpenMP requires signed integrals for its loop variables... interesting
 	signed long long i = 0;
-#pragma omp parallel for shared(thisPoints) private (i)
+#pragma omp parallel for shared(thisPoints) private (i) num_threads(4) //CHANGE THIS
 	for (i = 0; i < remainingPoints.size(); ++i) {
 		if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold)
 #pragma omp critical
