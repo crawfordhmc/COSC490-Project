@@ -147,28 +147,20 @@ int main(int argc, char* argv[]) {
     //recolor results in a seperate run since noise points will be written over
     if (argc == 8) {
         UniformPC u = UniformPC(pointCloud, voxel_size);
-        // 5 runs for ransac average time
-        ransac(u, gen, success, noise, threshold, maxTrials);
-        u.resetRemaining();
-        ransac(u, gen, success, noise, threshold, maxTrials);
-        u.resetRemaining();
-        ransac(u, gen, success, noise, threshold, maxTrials);
-        u.resetRemaining();
-        ransac(u, gen, success, noise, threshold, maxTrials);
-        u.resetRemaining();
+        // 3 runs for ransac average time
+        //ransac(u, gen, success, noise, threshold, maxTrials);
+        //u.resetRemaining();
+        //ransac(u, gen, success, noise, threshold, maxTrials);
+        //u.resetRemaining();
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(u, gen, success, noise, threshold, maxTrials);
         std::cout << "Total point distance calculations made: " << u.comparisons << std::endl;
         recolor(u, outputFile, colours);
     }
     else {
-        ransac(pointCloud, gen, success, noise, threshold, maxTrials);
-        pointCloud.resetRemaining();
-        ransac(pointCloud, gen, success, noise, threshold, maxTrials);
-        pointCloud.resetRemaining();
-        ransac(pointCloud, gen, success, noise, threshold, maxTrials);
-        pointCloud.resetRemaining();
-        ransac(pointCloud, gen, success, noise, threshold, maxTrials);
-        pointCloud.resetRemaining();
+        //ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+        //pointCloud.resetRemaining();
+        //ransac(pointCloud, gen, success, noise, threshold, maxTrials);
+        //pointCloud.resetRemaining();
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, noise, threshold, maxTrials);
         std::cout << "Total point distance calculations made: " << pointCloud.comparisons << std::endl;
         recolor(pointCloud, outputFile, colours);

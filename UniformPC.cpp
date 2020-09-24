@@ -41,8 +41,6 @@ UniformPC::UniformPC(PointCloud const&p, int voxel_scale) : PointCloud(p) {
     // check how best to order these for access time
     cells = std::vector<std::vector<std::vector<std::vector<size_t>>>>(x_voxels, std::vector<std::vector<std::vector<size_t>>>(y_voxels, std::vector<std::vector<size_t>>(z_voxels)));
 
-    std::cout << "Doing uniform space subdivision of " << x_voxels << " by " << y_voxels << " by " << z_voxels << " voxels..." << std::endl;
-
     // for each point, hash their index in the vector into a cell
     signed long long i = 0;
 #pragma omp parallel for num_threads(num_threads)
@@ -62,6 +60,7 @@ UniformPC::UniformPC(PointCloud const&p, int voxel_scale) : PointCloud(p) {
             }
         }
     }
+    std::cout << "Done uniform space subdivision of " << x_voxels << " by " << y_voxels << " by " << z_voxels << " voxels..." << std::endl;
 }
 
 
@@ -136,14 +135,20 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
             while (cell[d3] < limits[d3] && (signed long long) cell[d3] <= upper) {
                 //initialize iterator to progress during the for loop
-                std::vector<size_t>::iterator remain = remainingPoints.begin();
+                std::vector<size_t>::iterator it = remainingPoints.begin();
+                std::vector<size_t>::iterator last = it;
                 for (size_t index = 0; index < cells[cell[0]][cell[1]][cell[2]].size(); index++) {
-                    // find point in remainingPoints vector
-                    remain = std::lower_bound(remain, remainingPoints.end(), cells[cell[0]][cell[1]][cell[2]][index]);
-                    if (thisPlane.absDistance(pc[ cells[cell[0]][cell[1]][cell[2]][index] ].location) < threshold
-                        && remain != remainingPoints.end())
+                    // find point equal or larger in remainingPoints vecto
+                    it = std::lower_bound(it, remainingPoints.end(), cells[cell[0]][cell[1]][cell[2]][index]);
+                    // if iterator is at the end or point is greater than, set iterator to the last found point and continue for loop
+                    if (it == remainingPoints.end() || *it > cells[cell[0]][cell[1]][cell[2]][index]) {
+                        it = last;
+                        continue;
+                    }
+                    else if (thisPlane.absDistance(pc[ cells[cell[0]][cell[1]][cell[2]][index] ].location) < threshold)
 #pragma omp critical
                         indexes.push_back(cells[cell[0]][cell[1]][cell[2]][index]);
+                    last = it;
                 }
                 thread_comparisons += cells[cell[0]][cell[1]][cell[2]].size();
                 cell[d3] += 1;
