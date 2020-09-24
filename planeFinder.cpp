@@ -130,7 +130,7 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     //SET NUM THREADS HERE
-    unsigned int threads = 4;
+    unsigned int threads = 1;
 
     PointCloud pointCloud = PointCloud(inputFile, scale_parameter, threads);
     // Checking if number of points is too big for signed long long type

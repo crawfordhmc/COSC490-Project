@@ -156,6 +156,8 @@ void PointCloud::writeToPly(const std::string& filename) {
 	fout.close();
 }
 
+
+// Sets points plane ID and removes then from the lists of remaining points
 void PointCloud::removePoints(std::vector<size_t> &planePoints, int plane) {
 	std::vector<size_t> diff;
 	std::sort(planePoints.begin(), planePoints.end());
@@ -170,6 +172,7 @@ void PointCloud::removePoints(std::vector<size_t> &planePoints, int plane) {
 	}
 }
 
+// Helper method for testing when rerunning RANSAC without remaking the point cloud is desired
 void PointCloud::resetRemaining() {
 	remainingPoints.resize(size);
 	comparisons = 0;

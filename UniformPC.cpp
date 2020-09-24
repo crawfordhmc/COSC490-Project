@@ -60,6 +60,7 @@ UniformPC::UniformPC(PointCloud const&p, int voxel_scale) : PointCloud(p) {
             }
         }
     }
+    remainingCells = cells;
     std::cout << "Done uniform space subdivision of " << x_voxels << " by " << y_voxels << " by " << z_voxels << " voxels..." << std::endl;
 }
 
@@ -102,6 +103,8 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
     for (i = 0; i < limits[d1]; i++) {
 
         Eigen::Vector3d point = minima;
+        //initial bottom left voxel corner of the cell
+        point[d1] += i * voxel_size;
         size_t thread_comparisons = 0;
         double d1_min = (-thisPlane.coeffs()[d1] * point[d1] - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
         double d1_max = (-thisPlane.coeffs()[d1] * (point[d1] + voxel_size) - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
@@ -117,7 +120,6 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
         for (size_t j = 0; j < limits[d2]; j++) {
 
             cell[d2] = j;
-            point[d1] = point[d1] + i * voxel_size;
 
             double lower_lim = std::min(t1, t2);
             lower_lim = std::min(lower_lim, t3);
@@ -134,31 +136,19 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
             cell[d3] = std::max((long long) 0, lower);
 
             while (cell[d3] < limits[d3] && (signed long long) cell[d3] <= upper) {
-                //initialize iterator to progress during the for loop
-                std::vector<size_t>::iterator it = remainingPoints.begin();
-                std::vector<size_t>::iterator last = it;
-                for (size_t index = 0; index < cells[cell[0]][cell[1]][cell[2]].size(); index++) {
-                    // find point equal or larger in remainingPoints vecto
-                    it = std::lower_bound(it, remainingPoints.end(), cells[cell[0]][cell[1]][cell[2]][index]);
-                    // if iterator is at the end or point is greater than, set iterator to the last found point and continue for loop
-                    if (it == remainingPoints.end() || *it > cells[cell[0]][cell[1]][cell[2]][index]) {
-                        it = last;
-                        continue;
-                    }
-                    else if (thisPlane.absDistance(pc[ cells[cell[0]][cell[1]][cell[2]][index] ].location) < threshold)
+                for (size_t index = 0; index < remainingCells[cell[0]][cell[1]][cell[2]].size(); index++) {
+                    if (thisPlane.absDistance(pc[remainingCells[cell[0]][cell[1]][cell[2]][index] ].location) < threshold)
 #pragma omp critical
-                        indexes.push_back(cells[cell[0]][cell[1]][cell[2]][index]);
-                    last = it;
+                        indexes.push_back(remainingCells[cell[0]][cell[1]][cell[2]][index]);
                 }
-                thread_comparisons += cells[cell[0]][cell[1]][cell[2]].size();
+                thread_comparisons += remainingCells[cell[0]][cell[1]][cell[2]].size();
                 cell[d3] += 1;
 
             }
-            point[d2] += voxel_size;
             t1 = t3;
             t2 = t4;
-            t3 = t1 - voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
-            t4 = t2 - voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
+            t3 -= voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
+            t4 -= voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
 
         }
 #pragma omp critical
@@ -166,5 +156,61 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
     }
     return indexes;
+}
+
+
+// Sets points plane ID and removes then from the lists of remaining points
+void UniformPC::removePoints(std::vector<size_t>& planePoints, int plane) {
+    //remove from the remainingPoints vector
+    std::vector<size_t> diff;
+    std::sort(planePoints.begin(), planePoints.end());
+    std::set_difference(remainingPoints.begin(), remainingPoints.end(),
+        planePoints.begin(), planePoints.end(), std::inserter(diff, diff.begin()));
+    remainingPoints = diff;
+
+    //set plane ID
+    signed long long j = 0;
+#pragma omp parallel for num_threads(num_threads)
+    for (j = 0; j < planePoints.size(); ++j) {
+        setPointPlane(planePoints[j], plane);
+    }
+
+    //remove from the remaining cells
+    signed long long a = 0;
+#pragma omp parallel for num_threads(num_threads)
+    for (a = 0; a < x_voxels; ++a) {
+        for (size_t b = 0; b < y_voxels; ++b) {
+            for (size_t c = 0; c < z_voxels; ++c) {
+                // done using an efficient iterator method rather than set_difference because I don't want to resize the 4D array
+                std::vector<size_t>::iterator it = planePoints.begin();
+                std::vector<size_t>::iterator old = it;
+                size_t d = 0;
+                while (d < remainingCells[a][b][c].size()) {
+                    it = std::lower_bound(planePoints.begin(), planePoints.end(), remainingCells[a][b][c][d]);
+                    if (it == planePoints.end() || *it != remainingCells[a][b][c][d]) { //if not found, put the iterator back and advance
+                        it = old;
+                        ++d;
+                    }
+                    else { //erase from remaining cells and keep index the same to move forward
+                        remainingCells[a][b][c].erase(remainingCells[a][b][c].begin() + d);
+                        old = it;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+// Helper method for testing when rerunning RANSAC without remaking the point cloud is desired
+void UniformPC::resetRemaining() {
+    remainingPoints.resize(size);
+    comparisons = 0;
+    signed long long i = 0;
+#pragma omp parallel for num_threads(num_threads)
+    for (i = 0; i < size; ++i) {
+        remainingPoints[i] = i;
+    }
+    remainingCells = cells;
 }
 
