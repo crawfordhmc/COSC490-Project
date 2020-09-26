@@ -114,8 +114,9 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
         //d3 location of the plane in 4 corners of the voxel
         double t1 = d1_min - (thisPlane.coeffs()[d2] * point[d2] / thisPlane.coeffs()[d3]); //bottom left corner
         double t2 = d1_max - (thisPlane.coeffs()[d2] * point[d2] / thisPlane.coeffs()[d3]); //+ d1
-        double t3 = t1 - voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3]; // + d2
-        double t4 = t2 - voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3]; // + d1 and d2
+        double shift = voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
+        double t3 = t1 - shift; // + d2
+        double t4 = t2 - shift; // + d1 and d2
 
         for (size_t j = 0; j < limits[d2]; j++) {
 
@@ -130,8 +131,8 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
             lower_lim -= threshold;
             upper_lim += threshold;
-            signed long long lower = (lower_lim - minima[d3]) / voxel_size - 1;
-            signed long long upper = (upper_lim - minima[d3]) / voxel_size + 1;
+            signed long long lower = (lower_lim - minima[d3]) / voxel_size;
+            signed long long upper = (upper_lim - minima[d3]) / voxel_size;
 
             cell[d3] = std::max((long long) 0, lower);
 
@@ -147,8 +148,8 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
             }
             t1 = t3;
             t2 = t4;
-            t3 -= voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
-            t4 -= voxel_size * thisPlane.coeffs()[d2] / thisPlane.coeffs()[d3];
+            t3 -= shift;
+            t4 -= shift;
 
         }
 #pragma omp critical
