@@ -22,8 +22,21 @@ Leave conclusion for last
 
 
 PROFILING
-Vector full model comparisons for one plane: 52,182,710
+0.99 probability
+0.1 noise points
+1000 max trials
+0.02 threshold
 
+Vector full model comparisons for one plane: 52,182,710
 Uniform full model comparisons for one plane: 10,500,583
+
+Vector total comparisons for 900k: 
+Uniform (1) total comparisons for 900k: 1,419,154,009
+
+2 threads:
+Uniform time for full model: 9m56s (approx 4m24s up to writing data to file)
+(10,481,245,850 comparisons)
+Vector time: 8m2s until write
+(47,690,384,902 comparisons)
 
 
