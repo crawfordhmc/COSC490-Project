@@ -121,7 +121,6 @@ void PointCloud::setPointColour(size_t index, const Eigen::Vector3i& colour) { p
 
 
 // Returns a vector of points within the threshold to the given hyperplane
-// (also prints the number of threads being used for the calculations)
 std::vector<bool> PointCloud::planePoints(const Eigen::Hyperplane<double, 3>& thisPlane, size_t &thisSize) {
 	std::vector<bool> thisPoints = std::vector<bool>(size, false);
 	size_t pointsAdded = 0;
@@ -161,10 +160,9 @@ void PointCloud::writeToPly(const std::string& filename) {
 
 
 // Sets points plane ID and removes then from the lists of remaining points
-void PointCloud::removePoints(const std::vector<bool> &planePoints, int plane, size_t bestSize) {
+void PointCloud::removePoints(const std::vector<bool> &planePoints, int plane) {
 	std::vector<size_t> diff;
 	// parallel is not used as the vector needs to be sorted - would require additional work at the end
-	//redo if slow?
 	for (size_t i = 0; i < size; ++i) {
 		if (planePoints[i]) {
 			setPointPlane(i, plane);

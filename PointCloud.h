@@ -28,13 +28,13 @@ public:
 
 	PointCloud(const std::string& filepath, float scale_parameter, unsigned int threads);
 
-	virtual std::vector<bool> planePoints(const Eigen::Hyperplane<double, 3> &thisPlane, size_t &pointsAdded);
+	virtual std::vector<bool> planePoints(const Eigen::Hyperplane<double, 3> &thisPlane, size_t &thisSize);
 
 	Point getPoint(size_t index);
 	void setPointPlane(size_t index, int planeID);
 	void setPointColour(size_t index, const Eigen::Vector3i &colour);
 	void writeToPly(const std::string& filename);
-	virtual void removePoints(const std::vector<bool>& planePoints, int plane, size_t bestSize);
+	virtual void removePoints(const std::vector<bool>& planePoints, int plane);
 	virtual void resetRemaining();
 
 protected:

@@ -77,10 +77,9 @@ std::vector<size_t> UniformPC::hashCell(const Eigen::Vector3d& p) {
 }
 
 
-//std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &thisPlane) {
-std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thisPlane) {
-    //std::vector<size_t> indexes;
+std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thisPlane, size_t& thisSize) {
     std::vector<bool> indexes = std::vector<bool>(size, false);
+    size_t pointsAdded = 0;
     int d1, d2, d3;
 
     if (abs(thisPlane.coeffs()[0]) > abs(thisPlane.coeffs()[1]) && abs(thisPlane.coeffs()[0]) > abs(thisPlane.coeffs()[2])) {
@@ -101,7 +100,7 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
 
     Eigen::Vector3d minima = { XS, YS, ZS };
     signed long long i = 0;
-#pragma omp parallel for num_threads(num_threads)
+#pragma omp parallel for reduction(+:pointsAdded) num_threads(num_threads)
     for (i = 0; i < limits[d1]; i++) {
 
         Eigen::Vector3d point = minima;
@@ -140,10 +139,10 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
 
             while (cell[d3] < limits[d3] && (signed long long) cell[d3] <= upper) {
                 for (size_t index = 0; index < remainingCells[cell[0]][cell[1]][cell[2]].size(); index++) {
-                    if (thisPlane.absDistance(pc[remainingCells[cell[0]][cell[1]][cell[2]][index]].location) < threshold)
-                        //#pragma omp critical
-                                                //indexes.push_back(remainingCells[cell[0]][cell[1]][cell[2]][index]);
+                    if (thisPlane.absDistance(pc[remainingCells[cell[0]][cell[1]][cell[2]][index]].location) < threshold) {
                         indexes[remainingCells[cell[0]][cell[1]][cell[2]][index]] = true;
+                        ++pointsAdded;
+                    }
                 }
                 thread_comparisons += remainingCells[cell[0]][cell[1]][cell[2]].size();
                 cell[d3] += 1;
@@ -157,8 +156,8 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
         }
 #pragma omp critical
         comparisons += thread_comparisons;
-
     }
+    thisSize = pointsAdded;
     return indexes;
 }
 
