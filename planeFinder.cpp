@@ -31,7 +31,8 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
         // Create random distribution for the point cloud, with other planes removed
         std::uniform_int_distribution<size_t> distr(0, pointCloud.remainingPoints.size() - 1);
         Eigen::Hyperplane<double, 3> bestPlane;
-        std::vector<size_t> bestPoints;
+        std::vector<bool> bestPoints;
+        size_t bestSize = 0;
 
         unsigned int trial = 0;
         while (trial < numTrials && trial < maxTrials) {
@@ -47,14 +48,15 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
                 pointCloud.getPoint(foundPoints[1]).location,
                 pointCloud.getPoint(foundPoints[2]).location);
             // Add points closer than threshold to this plane
-            std::vector<size_t> thisPoints = pointCloud.planePoints(thisPlane);
-            size_t a = pointCloud.comparisons;
+            size_t thisSize = 0;
+            std::vector<bool> thisPoints = pointCloud.planePoints(thisPlane, thisSize);
 
             // Update plane with the most points
-            if (thisPoints.size() > bestPoints.size()) {
+            if (thisSize > bestSize) {
                 bestPlane = thisPlane;
                 bestPoints = thisPoints;
-                inlierRatio = (float)bestPoints.size() / (pointCloud.remainingPoints.size());
+                bestSize = thisSize;
+                inlierRatio = (float)bestSize / (pointCloud.remainingPoints.size());
                 numTrials = log(1 - successProb) / log(1 - pow(inlierRatio, 3));
 
             }
@@ -64,7 +66,7 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
         std::cout << trial << " RANSAC trials run for plane " << plane + 1 << ", equation: " <<
             bestPlane.coeffs()[0] << "x + " << bestPlane.coeffs()[1] << "y + " << bestPlane.coeffs()[2] << "z + " << bestPlane.coeffs()[3] << " = 0" << std::endl;
         // Remove point indexes of the best plane from all trials
-        pointCloud.removePoints(bestPoints, plane);
+        pointCloud.removePoints(bestPoints, plane, bestSize);
         plane++;
         planes.push_back(bestPlane);
 
@@ -130,7 +132,7 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     //SET NUM THREADS HERE
-    unsigned int threads = 1;
+    unsigned int threads = 4;
 
     PointCloud pointCloud = PointCloud(inputFile, scale_parameter, threads);
     // Checking if number of points is too big for signed long long type

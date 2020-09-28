@@ -77,8 +77,10 @@ std::vector<size_t> UniformPC::hashCell(const Eigen::Vector3d& p) {
 }
 
 
-std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &thisPlane) {
-    std::vector<size_t> indexes;
+//std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &thisPlane) {
+std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thisPlane) {
+    //std::vector<size_t> indexes;
+    std::vector<bool> indexes = std::vector<bool>(size, false);
     int d1, d2, d3;
 
     if (abs(thisPlane.coeffs()[0]) > abs(thisPlane.coeffs()[1]) && abs(thisPlane.coeffs()[0]) > abs(thisPlane.coeffs()[2])) {
@@ -138,9 +140,10 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
             while (cell[d3] < limits[d3] && (signed long long) cell[d3] <= upper) {
                 for (size_t index = 0; index < remainingCells[cell[0]][cell[1]][cell[2]].size(); index++) {
-                    if (thisPlane.absDistance(pc[remainingCells[cell[0]][cell[1]][cell[2]][index] ].location) < threshold)
-#pragma omp critical
-                        indexes.push_back(remainingCells[cell[0]][cell[1]][cell[2]][index]);
+                    if (thisPlane.absDistance(pc[remainingCells[cell[0]][cell[1]][cell[2]][index]].location) < threshold)
+                        //#pragma omp critical
+                                                //indexes.push_back(remainingCells[cell[0]][cell[1]][cell[2]][index]);
+                        indexes[remainingCells[cell[0]][cell[1]][cell[2]][index]] = true;
                 }
                 thread_comparisons += remainingCells[cell[0]][cell[1]][cell[2]].size();
                 cell[d3] += 1;
@@ -161,20 +164,18 @@ std::vector<size_t> UniformPC::planePoints(const Eigen::Hyperplane<double, 3> &t
 
 
 // Sets points plane ID and removes then from the lists of remaining points
-void UniformPC::removePoints(std::vector<size_t>& planePoints, int plane) {
+void UniformPC::removePoints(const std::vector<size_t>& planePoints, int plane) {
     //remove from the remainingPoints vector
     std::vector<size_t> diff;
-    std::sort(planePoints.begin(), planePoints.end());
-    std::set_difference(remainingPoints.begin(), remainingPoints.end(),
-        planePoints.begin(), planePoints.end(), std::inserter(diff, diff.begin()));
-    remainingPoints = diff;
-
-    //set plane ID
-    signed long long j = 0;
-#pragma omp parallel for num_threads(num_threads)
-    for (j = 0; j < planePoints.size(); ++j) {
-        setPointPlane(planePoints[j], plane);
+    for (size_t i = 0; i < size; ++i) {
+        if (planePoints[i]) {
+            setPointPlane(i, plane);
+        }
+        else if (std::binary_search(remainingPoints.begin(), remainingPoints.end(), i)) {
+            diff.push_back(i);
+        }
     }
+    remainingPoints = diff;
 
     //remove from the remaining cells
     signed long long a = 0;
@@ -182,19 +183,14 @@ void UniformPC::removePoints(std::vector<size_t>& planePoints, int plane) {
     for (a = 0; a < x_voxels; ++a) {
         for (size_t b = 0; b < y_voxels; ++b) {
             for (size_t c = 0; c < z_voxels; ++c) {
-                // done using an efficient iterator method rather than set_difference because I don't want to resize the 4D array
-                std::vector<size_t>::iterator it = planePoints.begin();
-                std::vector<size_t>::iterator old = it;
+                // done using erase because i don't want to change the 4D array
                 size_t d = 0;
                 while (d < remainingCells[a][b][c].size()) {
-                    it = std::lower_bound(planePoints.begin(), planePoints.end(), remainingCells[a][b][c][d]);
-                    if (it == planePoints.end() || *it != remainingCells[a][b][c][d]) { //if not found, put the iterator back and advance
-                        it = old;
+                    if (planePoints[remainingCells[a][b][c][d]]) { //if not found advance
                         ++d;
                     }
                     else { //erase from remaining cells and keep index the same to move forward
                         remainingCells[a][b][c].erase(remainingCells[a][b][c].begin() + d);
-                        old = it;
                     }
                 }
             }

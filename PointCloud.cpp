@@ -122,17 +122,20 @@ void PointCloud::setPointColour(size_t index, const Eigen::Vector3i& colour) { p
 
 // Returns a vector of points within the threshold to the given hyperplane
 // (also prints the number of threads being used for the calculations)
-std::vector<size_t> PointCloud::planePoints(const Eigen::Hyperplane<double, 3>& thisPlane) {
-	std::vector<size_t> thisPoints;
+std::vector<bool> PointCloud::planePoints(const Eigen::Hyperplane<double, 3>& thisPlane, size_t &thisSize) {
+	std::vector<bool> thisPoints = std::vector<bool>(size, false);
+	size_t pointsAdded = 0;
 	//OpenMP requires signed integrals for its loop variables... interesting
 	signed long long i = 0;
-#pragma omp parallel for shared(thisPoints) private (i) num_threads(num_threads)
+#pragma omp parallel for reduction(+:pointsAdded) num_threads(num_threads)
 	for (i = 0; i < remainingPoints.size(); ++i) {
-		if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold)
-#pragma omp critical
-			thisPoints.push_back(remainingPoints[i]);
+		if (thisPlane.absDistance(pc[remainingPoints[i]].location) < threshold) {
+			thisPoints[remainingPoints[i]] = true;
+			++pointsAdded;
+		}
 	}
 	comparisons += remainingPoints.size();
+	thisSize = pointsAdded;
 	return thisPoints;
 }
 
@@ -158,18 +161,19 @@ void PointCloud::writeToPly(const std::string& filename) {
 
 
 // Sets points plane ID and removes then from the lists of remaining points
-void PointCloud::removePoints(std::vector<size_t> &planePoints, int plane) {
+void PointCloud::removePoints(const std::vector<bool> &planePoints, int plane, size_t bestSize) {
 	std::vector<size_t> diff;
-	std::sort(planePoints.begin(), planePoints.end());
-	std::set_difference(remainingPoints.begin(), remainingPoints.end(), 
-		planePoints.begin(), planePoints.end(), std::inserter(diff, diff.begin()));
-	remainingPoints = diff;
-
-	signed long long j = 0;
-#pragma omp parallel for num_threads(num_threads)
-	for (j = 0; j < planePoints.size(); ++j) {
-		setPointPlane(planePoints[j], plane);
+	// parallel is not used as the vector needs to be sorted - would require additional work at the end
+	//redo if slow?
+	for (size_t i = 0; i < size; ++i) {
+		if (planePoints[i]) {
+			setPointPlane(i, plane);
+		}
+		else if (std::binary_search(remainingPoints.begin(), remainingPoints.end(), i)) {
+			diff.push_back(i);
+		}
 	}
+	remainingPoints = diff;
 }
 
 // Helper method for testing when rerunning RANSAC without remaking the point cloud is desired
