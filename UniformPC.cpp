@@ -106,7 +106,7 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
         Eigen::Vector3d point = minima;
         //initial bottom left voxel corner of the cell
         point[d1] += i * voxel_size;
-        size_t thread_comparisons = 0;
+        //size_t thread_comparisons = 0;
         double d1_min = (-thisPlane.coeffs()[d1] * point[d1] - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
         double d1_max = (-thisPlane.coeffs()[d1] * (point[d1] + voxel_size) - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
         std::vector<size_t> cell = { 0, 0, 0 };
@@ -144,7 +144,7 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
                         ++pointsAdded;
                     }
                 }
-                thread_comparisons += remainingCells[cell[0]][cell[1]][cell[2]].size();
+                //thread_comparisons += remainingCells[cell[0]][cell[1]][cell[2]].size();
                 cell[d3] += 1;
 
             }
@@ -154,8 +154,8 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
             t4 -= shift;
 
         }
-#pragma omp critical
-        comparisons += thread_comparisons;
+//#pragma omp critical
+//        comparisons += thread_comparisons;
     }
     thisSize = pointsAdded;
     return indexes;
@@ -163,7 +163,7 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
 
 
 // Sets points plane ID and removes then from the lists of remaining points
-void UniformPC::removePoints(const std::vector<size_t>& planePoints, int plane) {
+void UniformPC::removePoints(const std::vector<bool>& planePoints, int plane) {
     //remove from the remainingPoints vector
     std::vector<size_t> diff;
     for (size_t i = 0; i < size; ++i) {
@@ -185,11 +185,11 @@ void UniformPC::removePoints(const std::vector<size_t>& planePoints, int plane) 
                 // done using erase because i don't want to change the 4D array
                 size_t d = 0;
                 while (d < remainingCells[a][b][c].size()) {
-                    if (planePoints[remainingCells[a][b][c][d]]) { //if not found advance
-                        ++d;
-                    }
-                    else { //erase from remaining cells and keep index the same to move forward
+                    if (planePoints[remainingCells[a][b][c][d]]) { //erase from remaining cells and keep index the same to move forward
                         remainingCells[a][b][c].erase(remainingCells[a][b][c].begin() + d);
+                    }
+                    else { //keep in remainingPoints and move index forward
+                        ++d;
                     }
                 }
             }

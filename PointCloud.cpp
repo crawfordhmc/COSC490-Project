@@ -133,7 +133,7 @@ std::vector<bool> PointCloud::planePoints(const Eigen::Hyperplane<double, 3>& th
 			++pointsAdded;
 		}
 	}
-	comparisons += remainingPoints.size();
+	//comparisons += remainingPoints.size();
 	thisSize = pointsAdded;
 	return thisPoints;
 }

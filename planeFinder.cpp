@@ -66,7 +66,7 @@ std::vector<Eigen::Hyperplane<double, 3>> ransac(PointCloud& pointCloud, std::mt
         std::cout << trial << " RANSAC trials run for plane " << plane + 1 << ", equation: " <<
             bestPlane.coeffs()[0] << "x + " << bestPlane.coeffs()[1] << "y + " << bestPlane.coeffs()[2] << "z + " << bestPlane.coeffs()[3] << " = 0" << std::endl;
         // Remove point indexes of the best plane from all trials
-        pointCloud.removePoints(bestPoints, plane, bestSize);
+        pointCloud.removePoints(bestPoints, plane);
         plane++;
         planes.push_back(bestPlane);
 
@@ -132,7 +132,7 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     //SET NUM THREADS HERE
-    unsigned int threads = 4;
+    unsigned int threads = 1;
 
     PointCloud pointCloud = PointCloud(inputFile, scale_parameter, threads);
     // Checking if number of points is too big for signed long long type
@@ -147,12 +147,12 @@ int main(int argc, char* argv[]) {
     if (argc == 8) {
         UniformPC u = UniformPC(pointCloud, voxel_size);
         // 3 runs for ransac average time
-        ransac(u, gen, success, noise, threshold, maxTrials);
-        u.resetRemaining();
-        ransac(u, gen, success, noise, threshold, maxTrials);
-        u.resetRemaining();
+        //ransac(u, gen, success, noise, threshold, maxTrials);
+        //u.resetRemaining();
+        //ransac(u, gen, success, noise, threshold, maxTrials);
+        //u.resetRemaining();
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(u, gen, success, noise, threshold, maxTrials);
-        std::cout << "Total point distance calculations made: " << u.comparisons << std::endl;
+        //std::cout << "Total point distance calculations made: " << u.comparisons << std::endl;
         recolor(u, outputFile, colours);
     }
     else {
@@ -161,7 +161,7 @@ int main(int argc, char* argv[]) {
         ransac(pointCloud, gen, success, noise, threshold, maxTrials);
         pointCloud.resetRemaining();
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, noise, threshold, maxTrials);
-        std::cout << "Total point distance calculations made: " << pointCloud.comparisons << std::endl;
+        //std::cout << "Total point distance calculations made: " << pointCloud.comparisons << std::endl;
         recolor(pointCloud, outputFile, colours);
     }
 }
