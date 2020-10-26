@@ -19,9 +19,7 @@ planeFinder.cpp
 PointCloud.cpp
 PointCloud.h
 UniformPC.cpp
-UniformPC.h 
-OctreePC.cpp
-OctreePC.h )
+UniformPC.h )
 
 target_link_libraries( PlaneDetector PRIVATE Eigen3::Eigen)
 target_link_libraries( PlaneDetector PRIVATE tinyply)
