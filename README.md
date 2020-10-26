@@ -6,7 +6,10 @@ Uniform space subdivision is used for an additional 6x serial speedup over plane
 The plane detector presented is capable of reading from file andclassifying 52 million points in just under a minute, with performance benefits on smaller models and thread-limited hardware as well.
 
 
-This project uses the Eigen library. The experimental "lab" branch requires the tinyply library to load in larger non-ASCII PLY files.
+This project uses the Eigen library, and the tinyply library to load in larger non-ASCII PLY files.
 MeshLab is recommended for viewing point cloud inputs and outputs.
 
+The master branch was directly overwritten with the final code due to merge issues with IDE files - development history and the Oct-tree skeleton class can be viewed in the "lab" branch.
+
 Usage: planeFinder \input file\ \output file\ \probability of success\ \ratio of scene to be explained by planes\ \max RANSAC trials\ \scale factor\
+optional: \"uniform" or "vector" space subdivision\
