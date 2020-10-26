@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
     std::vector<Eigen::Hyperplane<double, 3>> planes;
 
     //SET NUM THREADS HERE
-    unsigned int threads = 1;
+    unsigned int threads = 4;
 
     PointCloud pointCloud = PointCloud(inputFile, scale_parameter, threads);
     // Checking if number of points is too big for signed long long type
@@ -145,7 +145,7 @@ int main(int argc, char* argv[]) {
 
     if (argc == 8) {
         UniformPC u = UniformPC(pointCloud, voxel_size);
-        // 3 runs for ransac average time
+        // EXAMPLE CODE FOR PERFORMANCE TESTING
         //ransac(u, gen, success, noise, threshold, maxTrials);
         //u.resetRemaining();
         //ransac(u, gen, success, noise, threshold, maxTrials);
