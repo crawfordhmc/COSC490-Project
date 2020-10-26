@@ -1,5 +1,4 @@
 #include "UniformPC.h"
-#include "OctreePC.h"
 
 void initialiseColours(std::vector<Eigen::Vector3i>* colours) {
     colours->resize(11);
