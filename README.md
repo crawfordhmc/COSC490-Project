@@ -12,4 +12,4 @@ MeshLab is recommended for viewing point cloud inputs and outputs.
 The master branch was directly overwritten with the final code due to merge issues with IDE files - development history and the Oct-tree skeleton class can be viewed in the "lab" branch.
 
 Usage: planeFinder \input file\ \output file\ \probability of success\ \ratio of scene to be explained by planes\ \max RANSAC trials\ \scale factor\
-optional: \"uniform" or "vector" space subdivision\
+optional: \integer voxel size to enable uniform space subdivision\
