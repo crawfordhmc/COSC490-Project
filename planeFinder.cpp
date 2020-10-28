@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
     // Parse the command line
     if (argc < 7 || argc > 8) {
         std::cout << "Usage: planeFinder <input file> <output file> <probability of success> <fraction of points to leave out> <max RANSAC trials> <scale factor>" << std::endl;
-        std::cout << "optional: \"uniform\" or \"vector\" space subdivision" << std::endl;
+        std::cout << "optional: integer voxel size for space subdivision" << std::endl;
         exit(-2);
     }
     else {
@@ -145,20 +145,11 @@ int main(int argc, char* argv[]) {
 
     if (argc == 8) {
         UniformPC u = UniformPC(pointCloud, voxel_size);
-        // EXAMPLE CODE FOR PERFORMANCE TESTING
-        //ransac(u, gen, success, noise, threshold, maxTrials);
-        //u.resetRemaining();
-        //ransac(u, gen, success, noise, threshold, maxTrials);
-        //u.resetRemaining();
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(u, gen, success, noise, threshold, maxTrials);
         std::cout << "Total point distance calculations made: " << u.comparisons << std::endl;
         recolor(u, outputFile, colours);
     }
     else {
-        //ransac(pointCloud, gen, success, noise, threshold, maxTrials);
-        //pointCloud.resetRemaining();
-        //ransac(pointCloud, gen, success, noise, threshold, maxTrials);
-        //pointCloud.resetRemaining();
         std::vector<Eigen::Hyperplane<double, 3>> planes = ransac(pointCloud, gen, success, noise, threshold, maxTrials);
         std::cout << "Total point distance calculations made: " << pointCloud.comparisons << std::endl;
         recolor(pointCloud, outputFile, colours);
