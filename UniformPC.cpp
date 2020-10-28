@@ -38,7 +38,6 @@ UniformPC::UniformPC(PointCloud const&p, int voxel_scale) : PointCloud(p) {
     z_voxels = (size_t)(ZL - ZS) / voxel_size;
     limits = { x_voxels, y_voxels, z_voxels };
 
-    // check how best to order these for access time
     cells = std::vector<std::vector<std::vector<std::vector<size_t>>>>(x_voxels, std::vector<std::vector<std::vector<size_t>>>(y_voxels, std::vector<std::vector<size_t>>(z_voxels)));
 
     // for each point, hash their index in the vector into a cell
@@ -106,7 +105,7 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
         Eigen::Vector3d point = minima;
         //initial bottom left voxel corner of the cell
         point[d1] += i * voxel_size;
-        //size_t thread_comparisons = 0;
+        size_t thread_comparisons = 0;
         double d1_min = (-thisPlane.coeffs()[d1] * point[d1] - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
         double d1_max = (-thisPlane.coeffs()[d1] * (point[d1] + voxel_size) - thisPlane.coeffs()[3]) / thisPlane.coeffs()[d3];
         std::vector<size_t> cell = { 0, 0, 0 };
@@ -144,7 +143,7 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
                         ++pointsAdded;
                     }
                 }
-                //thread_comparisons += remainingCells[cell[0]][cell[1]][cell[2]].size();
+                thread_comparisons += remainingCells[cell[0]][cell[1]][cell[2]].size();
                 cell[d3] += 1;
 
             }
@@ -154,8 +153,8 @@ std::vector<bool> UniformPC::planePoints(const Eigen::Hyperplane<double, 3>& thi
             t4 -= shift;
 
         }
-//#pragma omp critical
-//        comparisons += thread_comparisons;
+#pragma omp critical
+        comparisons += thread_comparisons;
     }
     thisSize = pointsAdded;
     return indexes;
